@@ -1991,12 +1991,3 @@ document.body.classList.add('boot'); // animation d'arrivée, retirée ensuite p
 setTimeout(() => document.body.classList.remove('boot'), 1400);
 render();
 loadData().catch(() => {}); // précharge la base pour que les affiches et la recherche soient prêtes
-if ('serviceWorker' in navigator) {
-  if (['localhost', '127.0.0.1'].includes(location.hostname)) {
-    // En local on veut toujours la dernière version : pas de service worker, et on nettoie ceux d'avant.
-    navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister()));
-    if (window.caches) caches.keys().then((ks) => ks.forEach((k) => caches.delete(k)));
-  } else if (location.protocol.startsWith('http')) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  }
-}
