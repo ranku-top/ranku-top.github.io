@@ -563,7 +563,7 @@ function addItem(key, title, image, m, extra) {
 const TYPE_FR = { TV: 'Série', MOVIE: 'Film', OVA: 'OVA', ONA: 'ONA' };
 const FORMATS = { TV: 'TV', TV_SHORT: 'TV', MOVIE: 'MOVIE', OVA: 'OVA', ONA: 'ONA' };
 const PILLS = [['all', 'Tous'], ['TV', 'Séries'], ['MOVIE', 'Films'], ['OVA', 'OVA / ONA']];
-const S = { items: [], ani: [], ids: new Set(), byKey: new Map(), type: 'all', hide: false, session: new Set(), aniState: '', undoKey: null };
+const S = { mode: null, anime: [], items: [], ani: [], ids: new Set(), byKey: new Map(), type: 'all', hide: false, session: new Set(), aniState: '', undoKey: null };
 let toastSearchTimer;
 
 const itemFromRow = (r) => {
@@ -618,7 +618,23 @@ function renderSearch(animate) {
   const all = [...S.items, ...S.ani];
   S.byKey = new Map(all.map((it) => [it.key, it]));
 
+  const visibleChars = () => S.items.filter((it) => inPill(it, S.type) && !(S.hide && isAdded(it)));
+  const charTools = [];
+  if (list.type === 'char' && q.length >= 2) {
+    if (S.mode) {
+      const left = visibleChars().filter((it) => !isAdded(it)).length;
+      charTools.push(
+        h('button', { class: 'sw-pill', id: 'srBack', type: 'button' }, '← Retour'),
+        h('span', { class: 'sr-modelab' }, `Personnages de « ${S.mode.title} » · ${S.items.length} chargé${S.items.length > 1 ? 's' : ''}${S.mode.loading ? '…' : ''}`),
+        h('button', { class: 'sw-pill on', id: 'srAll', type: 'button', ...(left ? {} : { disabled: '' }) }, left ? `Tout ajouter (${left})` : 'Tout est ajouté'),
+        ...(S.mode.hasNext && !S.mode.loading ? [h('button', { class: 'sw-pill', id: 'srMore', type: 'button' }, 'Charger plus')] : []));
+    } else if (S.anime.length) {
+      charTools.push(h('span', { class: 'sr-modelab' }, 'Tous les personnages de :'),
+        ...S.anime.map((m) => h('button', { class: 'sw-pill', dataset: { anime: String(m.id) }, type: 'button', title: m.title }, m.title + (m.year ? ' (' + m.year + ')' : ''))));
+    }
+  }
   $('#srTools').replaceChildren(
+    ...charTools,
     ...(list.type === 'char' ? [] : PILLS).map(([k, n]) => h('button', { class: 'sw-pill' + (S.type === k ? ' on' : ''), dataset: { ty: k }, type: 'button' },
       n, q.length >= 2 ? h('small', {}, String(all.filter((it) => inPill(it, k)).length)) : null)),
     h('span', { class: 'sw-tog' + (S.hide ? ' on' : ''), id: 'srTog' }, h('i'), 'Masquer ceux déjà ajoutés'));
@@ -629,13 +645,16 @@ function renderSearch(animate) {
 
   if (q.length < 2) {
     grid.replaceChildren(h('div', { class: 'sw-hint' },
-      h('div', { class: 'big' }, '🔎'), h('p', {}, list.type === 'char' ? 'Tape le nom d’un personnage' : 'Tape le titre d’un animé'),
-      h('small', {}, list.type === 'char' ? 'Tous les personnages d’AniList, méchants compris. Essaie le nom tel qu’il s’écrit en romaji : « Gojo », « Luffy », « Eren »…' : 'En français, en anglais ou en japonais : « L’Attaque des Titans » et « Shingeki no Kyojin » marchent tous les deux.')));
+      h('div', { class: 'big' }, '🔎'), h('p', {}, list.type === 'char' ? 'Tape le nom d’un personnage ou d’un animé' : 'Tape le titre d’un animé'),
+      h('small', {}, list.type === 'char' ? 'Un personnage (« Gojo », « Luffy », « Eren »…) ou un animé (« One Piece ») : pour un animé, tu peux ajouter tous ses personnages d’un coup.' : 'En français, en anglais ou en japonais : « L’Attaque des Titans » et « Shingeki no Kyojin » marchent tous les deux.')));
+    $('#srCnt').textContent = '';
+  } else if (S.mode && !loc.length && !ani.length) {
+    grid.replaceChildren(h('div', { class: 'sw-hint' }, S.mode.loading ? h('p', {}, 'Chargement des personnages…') : h('p', {}, S.items.length ? 'Tous les personnages sont déjà ajoutés.' : 'Aucun personnage trouvé pour cet animé.')));
     $('#srCnt').textContent = '';
   } else if (!loc.length && !ani.length) {
     grid.replaceChildren(h('div', { class: 'sw-hint' },
       h('div', { class: 'big' }, '🤔'), h('p', {}, `Rien dans la base pour « ${q} ».`),
-      h('small', {}, list.type === 'char' ? 'Essaie une autre orthographe (le nom en romaji).' : 'Les sorties très récentes ne sont pas toujours dedans.'),
+      h('small', {}, list.type === 'char' ? (S.anime.length ? 'Essaie les animés proposés ci-dessus pour voir tous leurs personnages.' : 'Essaie une autre orthographe (le nom en romaji).') : 'Les sorties très récentes ne sont pas toujours dedans.'),
       list.type !== 'char' && (S.aniState === '' || S.aniState === 'error') ? h('button', { class: 'sw-go', id: 'srAni2', type: 'button' }, 'Chercher sur AniList') : null,
       h('button', { class: 'ghost sm cu-open', id: 'srCustom2', type: 'button' }, `＋ Créer « ${q} » moi-même`)));
     $('#srCnt').textContent = '';
@@ -654,7 +673,7 @@ function renderSearch(animate) {
 
 async function doSearch() {
   const q = $('#q').value.trim();
-  S.ani = []; S.aniState = '';
+  S.ani = []; S.aniState = ''; S.mode = null; S.anime = [];
   if (q.length < 2) { S.items = []; renderSearch(true); return; }
   if (cur().type === 'char') { doCharSearch(q); return; }
   if (!animeData) {
@@ -738,6 +757,11 @@ $('#results').addEventListener('mouseout', (e) => {
   if (c && !c.contains(e.relatedTarget)) c.classList.remove('just');
 });
 $('#srTools').addEventListener('click', (e) => {
+  const an = e.target.closest('[data-anime]');
+  if (an) { const m = S.anime.find((x) => String(x.id) === an.dataset.anime); if (m) loadAnimeChars(m); return; }
+  if (e.target.closest('#srBack')) { S.mode = null; doSearch(); return; }
+  if (e.target.closest('#srMore')) { loadAnimeChars(null, true); return; }
+  if (e.target.closest('#srAll')) { addAllVisible(); return; }
   const p = e.target.closest('[data-ty]');
   if (p) { S.type = p.dataset.ty; renderSearch(); return; }
   if (e.target.closest('#srTog')) { S.hide = !S.hide; renderSearch(); }
@@ -767,7 +791,7 @@ function openSearch() {
   const chr = cur().type === 'char';
   const forTop = UI.view === 'top' ? ' à mon top' : '';
   $('#srTitle').textContent = (chr ? 'Ajouter des personnages' : 'Ajouter des animés') + forTop;
-  $('#q').placeholder = chr ? 'Nom d’un personnage…' : 'Titre d’un animé…';
+  $('#q').placeholder = chr ? 'Nom d’un personnage ou d’un animé…' : 'Titre d’un animé…';
   if (!dlg.open) dlg.showModal();
   $('#q').focus();
   renderSearch();
@@ -781,7 +805,7 @@ document.addEventListener('keydown', (e) => {
 });
 $('#dlgSearch').addEventListener('close', () => {
   $('#q').value = '';
-  Object.assign(S, { items: [], ani: [], aniState: '', undoKey: null, type: 'all' });
+  Object.assign(S, { items: [], ani: [], aniState: '', undoKey: null, type: 'all', mode: null, anime: [] });
   S.session.clear();
   $('#srToast').classList.remove('show');
   render();
@@ -901,13 +925,29 @@ $('#dlgFiche').addEventListener('close', () => { ficheKey = null; });
 const SHARE_ICON = '<svg viewBox="0 0 24 24"><path d="M12 15V3M7.5 7.5L12 3l4.5 4.5M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
 const SH = { blob: null, busy: 0 };
 
+// Charge une image pour le canvas. Piège : si la page a déjà affiché l'image SANS CORS, le navigateur la garde ainsi en cache et un
+// second chargement avec crossOrigin échoue (image absente de l'export). On la récupère donc par fetch « reload » (réponse CORS neuve),
+// puis on la lit depuis un blob local ; si le fetch échoue, on tente le chargement direct.
 const loadImage = (url) => new Promise((resolve) => {
-  const im = new Image();
-  im.crossOrigin = 'anonymous'; // les sites d'affiches autorisent l'usage dans un canvas
-  const t = setTimeout(() => resolve(null), 9000);
-  im.onload = () => { clearTimeout(t); resolve(im); };
-  im.onerror = () => { clearTimeout(t); resolve(null); };
-  im.src = url;
+  const done = (im) => resolve(im);
+  const direct = (u, cors) => {
+    const im = new Image();
+    if (cors) im.crossOrigin = 'anonymous';
+    const t = setTimeout(() => done(null), 9000);
+    im.onload = () => { clearTimeout(t); done(im); };
+    im.onerror = () => { clearTimeout(t); done(null); };
+    im.src = u;
+  };
+  if (!/^https?:/i.test(url)) { direct(url, false); return; } // data: ou chemin local : pas de CORS en jeu
+  fetch(url, { mode: 'cors', cache: 'reload' })
+    .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(r.status))))
+    .then((b) => {
+      const o = URL.createObjectURL(b), im = new Image();
+      im.onload = () => { URL.revokeObjectURL(o); done(im); };
+      im.onerror = () => { URL.revokeObjectURL(o); direct(url, true); };
+      im.src = o;
+    })
+    .catch(() => direct(url, true));
 });
 
 function rr(ctx, x, y, w, h, r) { // rectangle arrondi (compatible partout)
@@ -1317,13 +1357,14 @@ $('#listType').addEventListener('click', (e) => {
 });
 
 // recherche de personnages sur AniList (tous les personnages, y compris les méchants)
-const CHAR_SEARCH_Q = 'query($s:String){Page(perPage:30){characters(search:$s,sort:SEARCH_MATCH){id name{full} image{large} media(perPage:1,sort:POPULARITY_DESC){nodes{title{romaji english}}}}}}';
+const CHAR_SEARCH_Q = 'query($s:String){a:Page(perPage:30){characters(search:$s,sort:SEARCH_MATCH){id name{full} image{large} media(perPage:1,sort:POPULARITY_DESC){nodes{title{romaji english}}}}} b:Page(perPage:4){media(search:$s,type:ANIME,sort:SEARCH_MATCH){id title{romaji english} seasonYear}}}';
 const isPlaceholderImg = (u) => !u || /default\.(jpg|png)/.test(u);
 
 async function doCharSearch(q) {
   $('#results').replaceChildren(h('div', { class: 'sw-hint' }, h('p', {}, 'Recherche sur AniList…')));
   $('#srCnt').textContent = '';
   let items = [], error = false;
+  S.anime = [];
   try {
     const res = await fetch('https://graphql.anilist.co', {
       method: 'POST',
@@ -1332,15 +1373,65 @@ async function doCharSearch(q) {
     });
     if (!res.ok) throw new Error(res.status);
     const j = await res.json();
-    items = (j.data.Page.characters || []).filter((c) => !isPlaceholderImg(c.image.large)).map((c) => {
+    S.anime = (j.data.b.media || []).map((m) => ({ id: m.id, title: m.title.english || m.title.romaji, year: m.seasonYear || '' }));
+    items = (j.data.a.characters || []).filter((c) => !isPlaceholderImg(c.image.large)).map((c) => {
       const t = c.media.nodes[0]?.title;
       return { key: 'c' + c.id, char: true, title: c.name.full, img: c.image.large, fmt: 'CHAR', sub: t ? (t.english || t.romaji) : '' };
     });
   } catch { error = true; }
   if ($('#q').value.trim() !== q) return; // une frappe plus récente a pris le relais
-  S.items = items; S.ani = []; S.aniState = '';
+  S.items = items; S.ani = []; S.aniState = ''; S.mode = null;
   if (error) { $('#results').replaceChildren(h('div', { class: 'sw-hint' }, h('div', { class: 'big' }, '📡'), h('p', {}, 'AniList est indisponible pour le moment.'), h('small', {}, 'Vérifie ta connexion et réessaie.'))); return; }
   renderSearch(true);
+}
+
+// tous les personnages d'un animé (principaux d'abord), par pages de 25 ; 8 pages (200 personnages) par clic
+const ANIME_CHARS_Q = 'query($id:Int,$p:Int){Media(id:$id){characters(page:$p,perPage:25,sort:[ROLE,RELEVANCE]){pageInfo{hasNextPage} edges{node{id name{full} image{large}}}}}}';
+async function loadAnimeChars(media, more = false) {
+  if (!more) S.mode = { id: media.id, title: media.title, page: 0, hasNext: true, loading: false };
+  const m = S.mode;
+  if (!m || m.loading) return;
+  if (!more) S.items = [];
+  m.loading = true; renderSearch(true);
+  const t0 = m.page;
+  while (m.hasNext && m.page - t0 < 8) {
+    let j = null;
+    for (let attempt = 0; attempt < 3 && !j; attempt++) {
+      try {
+        const res = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ query: ANIME_CHARS_Q, variables: { id: m.id, p: m.page + 1 } }) });
+        if (res.status === 429) { await new Promise((r) => setTimeout(r, 4000)); continue; }
+        const d = await res.json();
+        if (d?.data?.Media) j = d.data.Media.characters;
+      } catch { await new Promise((r) => setTimeout(r, 1500)); }
+    }
+    if (S.mode !== m) return; // l'utilisateur a changé de recherche
+    if (!j) { m.loading = false; m.hasNext = true; toast('AniList ne répond pas, réessaie avec « Charger plus »'); renderSearch(); return; }
+    for (const e of j.edges) {
+      const c = e.node;
+      if (isPlaceholderImg(c.image.large) || S.items.some((x) => x.key === 'c' + c.id)) continue;
+      S.items.push({ key: 'c' + c.id, char: true, title: c.name.full, img: c.image.large, fmt: 'CHAR', sub: m.title });
+    }
+    m.page++; m.hasNext = j.pageInfo.hasNextPage;
+    renderSearch();
+    if (m.hasNext && m.page - t0 < 8) await new Promise((r) => setTimeout(r, 700));
+  }
+  m.loading = false; renderSearch();
+}
+
+// ajoute d'un coup tous les résultats affichés (une seule sauvegarde)
+function addAllVisible() {
+  const list = cur();
+  const todo = S.items.filter((it) => inPill(it, S.type) && !isAdded(it));
+  let n = 0;
+  for (const it of todo) {
+    if (list.slots && !list.slots.includes(null)) break;
+    list.items[it.key] = it.char ? { t: it.title, i: it.img, a: it.sub } : { t: it.title, i: it.img };
+    if (list.slots) list.slots[list.slots.indexOf(null)] = it.key; else list.pool.push(it.key);
+    S.session.add(it.key); n++;
+  }
+  if (n) { save(); render(); }
+  renderSearch();
+  toast(n < todo.length ? `${n} ajouté${n > 1 ? 's' : ''} : ton top est complet` : `${n} personnage${n > 1 ? 's' : ''} ajouté${n > 1 ? 's' : ''} dans Non classé`);
 }
 
 // ---------- Personnages principaux de mes animés ----------
@@ -1718,10 +1809,10 @@ function renderQuick() {
     return;
   }
   const sub = it.m && it.m.length > 1 ? `${it.m.length} saisons` : (it.a || '');
-  $('#qsBody').replaceChildren(
+  $('#qsBody').replaceChildren(...[
     h('img', { class: 'qs-card', src: imgUrl(it.i), alt: it.t }),
     h('div', { class: 'qs-title' }, it.t),
-    sub ? h('div', { class: 'qs-sub' }, sub) : null);
+    sub ? h('div', { class: 'qs-sub' }, sub) : null].filter(Boolean));
   $('#qsTiers').replaceChildren(...list.tiers.map((t, i) => h('button', {
     class: 'qs-t', dataset: { qt: t.id }, type: 'button',
     style: `--c1:${t.color};--c2:${shade(t.color, -0.2)};--ink:${textOn(t.color)}`,
@@ -1763,6 +1854,7 @@ $('#qsTiers').addEventListener('click', (e) => {
 });
 $('#qsSkip').onclick = quickSkip;
 $('#qsDel').onclick = quickDelete;
+$('#qsDone').onclick = () => $('#dlgSort').close();
 $('#qsUndo').onclick = quickUndo;
 $('#qsClose').onclick = () => $('#dlgSort').close();
 $('#dlgSort').addEventListener('close', () => { QS.queue = []; render(); });
