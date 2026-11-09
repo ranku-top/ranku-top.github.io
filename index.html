@@ -109,7 +109,11 @@
 
 <dialog id="dlgShare" class="modal share">
   <div class="sh-head"><h2>Partager ma tier list</h2><button class="sw-x" id="shClose" type="button" aria-label="Fermer">✕</button></div>
-  <label class="sh-names" id="shNamesRow"><input type="checkbox" id="shNames"> Afficher le nom sur les jaquettes</label>
+  <div id="shNamesRow">
+    <label class="sh-names"><input type="checkbox" id="shNames"> Afficher le nom sur les jaquettes</label>
+    <label class="sh-names"><input type="checkbox" id="shRing"> Liseré de couleur autour des jaquettes</label>
+    <label class="sh-names"><input type="checkbox" id="shTint"> Voile de couleur léger sur chaque tier</label>
+  </div>
   <div class="sh-prev"><div id="shState">Création de l’image…</div><img id="shImg" alt="Aperçu de ta tier list" hidden></div>
   <div class="sh-act">
     <button class="ghost" id="shDl" type="button" disabled>Télécharger l’image</button>

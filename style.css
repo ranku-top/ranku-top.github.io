@@ -874,3 +874,5 @@ body[data-layout="a"] #board, body[data-layout="a"] #topView { padding-top: 0; }
 
 .sh-names { display: flex; align-items: center; gap: 10px; padding: 2px 18px 12px; color: #c9cde0; font: 700 14px 'Inter', sans-serif; cursor: pointer; }
 .sh-names input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+#shNamesRow { padding-bottom: 4px; } #shNamesRow .sh-names { padding-bottom: 8px; }

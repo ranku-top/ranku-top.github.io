@@ -1108,7 +1108,7 @@ async function refreshShare() {
   $('#shState').textContent = 'Création de l’image…';
   $('#shState').hidden = false; img.hidden = true;
   ['shDl', 'shCopy', 'shShare'].forEach((id) => { $('#' + id).disabled = true; });
-  const cv = await withTitle(await (list.slots ? buildTopImage(list) : buildShareImage(list, !!db.shareNames)), list.name);
+  const cv = await withTitle(await (list.slots ? buildTopImage(list) : buildShareImage(list, !!db.shareNames, { ring: db.shareRing !== false, tint: db.shareTint ? 1 : false })), list.name);
   const blob = await new Promise((r) => cv.toBlob(r, 'image/png'));
   if (my !== SH.busy) return; // une demande plus récente a pris le relais
   SH.blob = blob;
@@ -1120,9 +1120,13 @@ async function refreshShare() {
 }
 
 $('#shNames').addEventListener('change', (e) => { db.shareNames = e.target.checked; save(); refreshShare(); });
+$('#shRing').addEventListener('change', (e) => { db.shareRing = e.target.checked; save(); refreshShare(); });
+$('#shTint').addEventListener('change', (e) => { db.shareTint = e.target.checked; save(); refreshShare(); });
 function openShare() {
   $('#shNames').checked = !!db.shareNames;
-  $('#shNamesRow').hidden = !!cur().slots; // un top affiche déjà les titres
+  $('#shRing').checked = db.shareRing !== false; // liseré : activé par défaut
+  $('#shTint').checked = !!db.shareTint;
+  $('#shNamesRow').hidden = !!cur().slots; // ces options ne concernent que les tier lists (un top affiche déjà les titres)
   if (cur().slots && !cur().slots.some(Boolean)) { toast('Ajoute d’abord quelques éléments à ton top'); return; }
   const file = new File([new Blob()], 'x.png', { type: 'image/png' });
   $('#shShare').hidden = !(navigator.canShare && navigator.canShare({ files: [file] }));
