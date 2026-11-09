@@ -868,3 +868,6 @@ body[data-layout="a"] #board, body[data-layout="a"] #topView { padding-top: 0; }
 .sw-pill:disabled { opacity: .5; pointer-events: none; }
 .sw-tools { flex-wrap: wrap; row-gap: 6px; }
 .sw-tools .sw-pill[data-anime] { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ct-btn.ct-del { background: #5a1f27; color: #ffd9de; border-color: #2d0d12; box-shadow: 0 3px 0 #2d0d12; }
+.ct-btn.ct-del.armed { background: #c0392b; color: #fff; }

@@ -134,6 +134,21 @@ function renderWelcome() {
 
 const RESET_ICON = '<svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.5-5.8M4 4v4h4"/></svg>';
 let resetArmed = false, resetTimer;
+let delAllArmed = false, delAllTimer;
+// supprime TOUTES les cartes de la tier list (tiers et Non classé) ; deux appuis pour éviter l'accident
+function deleteAllCards() {
+  const list = cur();
+  if (!delAllArmed) {
+    delAllArmed = true; render();
+    clearTimeout(delAllTimer); delAllTimer = setTimeout(() => { delAllArmed = false; if (UI.view === 'tiers') render(); }, 4000);
+    return;
+  }
+  clearTimeout(delAllTimer); delAllArmed = false;
+  const n = Object.keys(list.items).length;
+  list.items = {}; list.pool = []; list.tiers.forEach((t) => (t.items = []));
+  save(); render();
+  toast(`${n} carte${n > 1 ? 's' : ''} supprimée${n > 1 ? 's' : ''}`);
+}
 // remet toutes les cartes des tiers dans « Non classé » (en gardant l'ordre S, A, B…) ; deux appuis pour éviter l'accident
 function resetTiers() {
   const list = cur();
@@ -197,6 +212,8 @@ function render() {
           ...(list.type === 'char'
             ? [['title', 'Nom A → Z'], ['titleDesc', 'Nom Z → A'], ['anime', 'Par animé']]
             : [['title', 'Titre A → Z'], ['titleDesc', 'Titre Z → A'], ['yearAsc', 'Année : anciens d’abord'], ['yearDesc', 'Année : récents d’abord']]).map(([v, l]) => h('option', { value: v }, l))),
+        h('button', { class: 'ct-btn ct-del' + (delAllArmed ? ' armed' : ''), id: 'delAllBtn', type: 'button', ...(Object.keys(list.items).length ? {} : { disabled: '' }) },
+          delAllArmed ? `Sûr ? Supprimer ${Object.keys(list.items).length} carte${Object.keys(list.items).length > 1 ? 's' : ''}` : 'Tout supprimer'),
         ),
       h('div', { class: 'zone', dataset: { zone: 'pool' } }, list.pool.filter((k) => list.items[k]).map((k) => card(list, k)))));
 
@@ -249,6 +266,7 @@ $('#board').addEventListener('click', (e) => {
   if (e.target.closest('.tb-chars')) { openChars(); return; }
   if (e.target.closest('.tb-import')) { openImport(); return; }
   if (e.target.closest('#resetBtn')) { resetTiers(); return; }
+  if (e.target.closest('#delAllBtn')) { deleteAllCards(); return; }
   if (e.target.closest('#quickBtn')) { openQuick(); return; }
   const card = e.target.closest('.card');
   if (card && UI.selMode) { toggleSel(card); return; }
@@ -1156,7 +1174,9 @@ function importInto(list, medias) {
       } else { key = rowKey(r); item = { t: r[0], i: r[3] }; }
     } else if (m.format === 'TV' || m.format === 'TV_SHORT') { // série absente de la base (très récente)
       key = 'a' + m.id; item = { t: m.title.english || m.title.romaji, i: m.coverImage.large };
-    } else { stats.ignored++; continue; } // film / OVA / ONA lié à une série : pas dans les licences
+    } else if ((m.format === 'OVA' || m.format === 'ONA') && m.id) { // OVA / ONA absent de la base : carte séparée (titre et affiche d'AniList)
+      key = 'a' + m.id; item = { t: m.title.english || m.title.romaji, i: m.coverImage.large };
+    } else { stats.ignored++; continue; } // films et spéciaux absents de la base : laissés de côté
     if (list.items[key]) { stats.present++; continue; }
     list.items[key] = item; list.pool.push(key); fresh.add(key); stats.added++;
   }
@@ -1194,7 +1214,7 @@ function renderImportSrc() {
   $('#impFileRow').classList.toggle('imp-hide', !mal);
   $('#impNote').innerHTML = mal
     ? 'Exporte ta liste depuis la <a href="https://myanimelist.net/panel.php?go=export" target="_blank" rel="noopener">page d’export de MyAnimeList</a>, puis choisis ici le fichier téléchargé (<b>.xml</b> ou <b>.xml.gz</b>, pas besoin de le décompresser). Tes animés <b>terminés</b> arrivent dans « Non classé » ; ce qui est déjà dans ta liste ne bouge pas. Les saisons d’une même licence sont regroupées.'
-    : 'Entre ton pseudo AniList : tes animés <b>terminés</b> arrivent dans « Non classé ». Ce qui est déjà dans ta liste ne bouge pas : seuls les <b>nouveaux</b> sont ajoutés, tu peux donc réimporter quand tu veux. Les saisons d’une même licence sont regroupées. Ton profil doit être public.';
+    : 'Entre ton pseudo AniList : tes animés <b>terminés</b> arrivent dans « Non classé ». Ce qui est déjà dans ta liste ne bouge pas : seuls les <b>nouveaux</b> sont ajoutés, tu peux donc réimporter quand tu veux. Les saisons d’une même licence sont regroupées ; les OVA et ONA absents de la base arrivent en cartes séparées, les films sont laissés de côté. Ton profil doit être public.';
 }
 $('#impSrc').addEventListener('click', (e) => {
   const b = e.target.closest('[data-isrc]');
@@ -1275,8 +1295,8 @@ async function loadMalFile() {
   let skipped = 0;
   for (const e of entries) {
     if (rowByMal.has(e.mal)) medias.push({ id: 0, idMal: e.mal, format: e.type === 'TV' ? 'TV' : e.type.toUpperCase(), title: { romaji: e.title }, coverImage: { large: '' } });
-    else if (e.type === 'TV') unmatched.push(e.mal);
-    else skipped++; // film / OVA / ONA / spécial absent de la base : laissé de côté
+    else if (e.type === 'TV' || e.type === 'OVA' || e.type === 'ONA') unmatched.push(e.mal); // TV récente, OVA ou ONA : on les retrouve sur AniList
+    else skipped++; // film / spécial absent de la base : laissé de côté
   }
   if (unmatched.length) {
     setImport('load', `${unmatched.length} série${unmatched.length > 1 ? 's' : ''} récente${unmatched.length > 1 ? 's' : ''} à retrouver sur AniList…`);
@@ -1325,7 +1345,7 @@ async function runImport() {
     if (stats.present) parts.push(`${stats.present} déjà dans ta liste, laissé${s(stats.present)} tel${s(stats.present)} quel${s(stats.present)}.`);
     if (stats.updated) parts.push(`${stats.updated} licence${s(stats.updated)} ${stats.updated > 1 ? 'ont' : 'a'} reçu de nouvelles saisons.`);
     if (stats.merged) parts.push(`${stats.merged} saison${s(stats.merged)} regroupée${s(stats.merged)} avec leur licence.`);
-    if (stats.ignored) parts.push(`${stats.ignored} film${s(stats.ignored)} / OVA ou série introuvable${s(stats.ignored)} laissé${s(stats.ignored)} de côté.`);
+    if (stats.ignored) parts.push(`${stats.ignored} film${s(stats.ignored)} ou spécial${stats.ignored > 1 ? 'aux' : ''} (ou animé introuvable) laissé${s(stats.ignored)} de côté.`);
     setImport('ok', parts.join(' '));
     $('#impGo').textContent = 'Terminé';
     $('#impGo').disabled = false;

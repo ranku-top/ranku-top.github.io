@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ranku : propositions de DA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Bangers&family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; }
+body { font: 500 14px var(--fb, Inter), sans-serif; background: #0d0e12; color: #eee; }
+button, input, select { font: inherit; color: inherit; border: 0; background: none; }
+button { cursor: pointer; }
+
+/* ===== sélecteur de DA (hors maquette) ===== */
+.picker { position: sticky; top: 0; z-index: 50; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 16px; background: #14161c; border-bottom: 2px solid #000; }
+.picker b { font: 800 18px 'Baloo 2'; margin-right: 8px; }
+.picker button { padding: 8px 14px; border-radius: 10px; background: #262a36; font: 700 13px Inter; color: #cfd3e4; border: 2px solid #000; }
+.picker button.on { background: #4f8cff; color: #fff; }
+.blurb { padding: 12px 18px; background: #181a22; color: #aab1cf; line-height: 1.5; border-bottom: 1px solid #000; max-width: 1100px; }
+.blurb b { color: #fff; }
+
+/* ===== maquette : tout passe par des variables ===== */
+.mock { --bg:#23262f; --side:#1c1f27; --panel:#272b37; --panel2:#343949; --text:#eef0f7; --muted:#8f98b8; --accent:#4f8cff; --accent-ink:#fff; --line:#12141b;
+  --r:14px; --rb:12px; --bsh:0 3px 0 var(--line); --bb:2px solid var(--line); --glow:none; --ft:'Baloo 2'; --fb:Inter; --t1:#ff7aa2; --t2:#ffb83d; --t3:#ffe066; --t4:#4ade9f; --t5:#6ea0ff;
+  --board:#7a5a3b; --note:#f3e19a; --note-ink:#3a2a10; --pol:#fff; --rowfx:rgba(20,22,30,.8); --sidebd:2px solid var(--line);
+  background: var(--bg); color: var(--text); font-family: var(--fb), sans-serif; display: grid; grid-template-columns: 230px 1fr; min-height: 900px; }
+.mock * { font-family: inherit; }
+.mock .ft, .mock h2, .mock .logo, .mock .tl, .mock .num { font-family: var(--ft), sans-serif; }
+
+.side { background: var(--side); border-right: var(--sidebd); padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; }
+.logo { font-size: 28px; font-weight: 800; padding: 0 6px 14px; display: flex; align-items: center; gap: 9px; } .logo i { width: 32px; height: 32px; border-radius: 9px; background: #16162a; border: var(--bb); display: inline-flex; flex-direction: column; justify-content: center; gap: 3px; padding: 0 6px; } .logo i s { height: 3px; border-radius: 2px; display: block; } .logo i s:nth-child(1) { background: #ff6b6b; } .logo i s:nth-child(2) { background: #ffd24d; width: 80%; } .logo i s:nth-child(3) { background: #4f8cff; width: 60%; }
+.logo span { color: #ff6b57; } .logo b { color: var(--accent); }
+.sd-h { display: flex; align-items: center; gap: 6px; margin-top: 8px; } .sd-h .n { flex: 1; display: flex; align-items: center; gap: 10px; padding: 9px 10px; font-weight: 700; font-size: 15px; color: var(--text); }
+.pl { width: 32px; height: 32px; border-radius: var(--rb); background: var(--panel2); border: var(--bb); box-shadow: var(--bsh); display: flex; align-items: center; justify-content: center; font-weight: 800; }
+.sd-l { margin: 2px 0 4px 16px; padding-left: 8px; border-left: 2px solid var(--panel2); display: flex; flex-direction: column; gap: 2px; }
+.sd-i { padding: 7px 10px; border-radius: 10px; color: var(--muted); font-weight: 600; font-size: 13px; } .sd-i.on { background: var(--accent); color: var(--accent-ink); box-shadow: var(--bsh); font-weight: 800; }
+
+.main { padding: 22px 26px 40px; max-width: 1060px; width: 100%; }
+.pgt { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; } .pgt h2 { font-size: 30px; font-weight: 800; margin-right: auto; }
+.tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; } .tools .sp { flex: 1; }
+.btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 15px; border-radius: var(--rb); background: var(--panel2); color: var(--text); border: var(--bb); box-shadow: var(--bsh); font-weight: 700; font-size: 13px; white-space: nowrap; }
+.btn.p { background: var(--accent); color: var(--accent-ink); box-shadow: var(--bsh), var(--glow); }
+.btn.d { background: #7a2630; color: #ffd9de; }
+.range { width: 120px; height: 6px; border-radius: 9px; background: var(--panel2); position: relative; } .range::after { content: ''; position: absolute; left: 42%; top: -5px; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: var(--bb); }
+
+.tiers { position: relative; background: var(--panel); border: var(--bb); border-radius: var(--r); overflow: hidden; box-shadow: var(--bsh); }
+.tiers::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 10px; background: linear-gradient(180deg, var(--t1), var(--t2) 33%, var(--t3) 55%, var(--t4) 80%, var(--t5)); }
+.tier { display: flex; align-items: center; border-top: 2px solid var(--tsep, var(--line)); min-height: 96px; } .tier:first-child { border-top: 0; }
+.tl { width: 112px; padding-left: 14px; text-align: center; font-size: 46px; font-weight: 800; line-height: 1; display: flex; flex-direction: column; align-items: center; } .tl small { font: 600 11px var(--fb); color: var(--muted); margin-top: 4px; }
+.tz { flex: 1; display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 8px 8px 0; }
+.pic { display: block; width: 64px; height: 92px; border-radius: 9px; background-size: cover; background-position: center; border: 2px solid #0e1016; box-shadow: 0 3px 0 rgba(0,0,0,.4); flex: none; }
+
+.board { margin-top: 18px; position: relative; border-radius: var(--r); background: var(--board); border: var(--bb); padding: 40px 14px 16px; box-shadow: var(--bsh); }
+.note { position: absolute; top: -16px; left: 16px; padding: 7px 14px; background: var(--note); color: var(--note-ink); font-weight: 800; font-size: 17px; transform: rotate(-2deg); border-radius: 4px; box-shadow: 0 3px 0 rgba(0,0,0,.25); display: flex; gap: 8px; align-items: center; } .note b { background: rgba(0,0,0,.18); padding: 1px 8px; border-radius: 99px; font-size: 13px; }
+.bt { display: flex; gap: 8px; margin: -26px 0 14px auto; width: max-content; } .bt .in { padding: 7px 12px; border-radius: 9px; background: rgba(255,255,255,.7); color: #222; font-size: 13px; min-width: 140px; border: 2px solid rgba(0,0,0,.35); }
+.pols { display: flex; flex-wrap: wrap; gap: 14px; padding-top: 6px; }
+.pol { background: var(--pol); padding: 5px 5px 9px; border-radius: 3px; box-shadow: 0 4px 6px rgba(0,0,0,.4); } .pol:nth-child(odd) { transform: rotate(-2deg); } .pol:nth-child(even) { transform: rotate(1.6deg); }
+.pol .pic { width: 74px; height: 106px; border-radius: 2px; border: 0; box-shadow: none; }
+
+.sec { margin: 28px 0 10px; font: 800 12px var(--fb); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.rows { display: flex; flex-direction: column; gap: 9px; }
+.row { position: relative; display: flex; align-items: center; gap: 14px; height: 80px; padding: 0 16px 0 14px; border-radius: var(--r); overflow: hidden; border: var(--bb); background: var(--panel); }
+.row .bgp { position: absolute; inset: -20px; background-size: cover; background-position: center 25%; filter: blur(14px) saturate(1.2); opacity: .55; }
+.row::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, var(--rowfx), transparent 85%); }
+.row > *:not(.bgp) { position: relative; z-index: 2; } .row .num { width: 40px; text-align: center; font-size: 34px; font-weight: 800; } .row .pic { width: 44px; height: 64px; } .row b { font-size: 16px; color: #fff; text-shadow: 0 1px 5px rgba(0,0,0,.6); }
+.comp { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.chip { padding: 7px 14px; border-radius: 99px; background: var(--panel2); font-weight: 700; font-size: 12px; border: var(--bb); } .chip.on { background: var(--accent); color: var(--accent-ink); }
+.input { padding: 10px 14px; border-radius: var(--rb); background: var(--side); border: var(--bb); min-width: 260px; color: var(--muted); }
+.dlg { margin-top: 6px; padding: 18px; border-radius: calc(var(--r) + 6px); background: var(--panel); border: var(--bb); box-shadow: var(--bsh), 0 20px 40px rgba(0,0,0,.35); max-width: 640px; }
+.dlg h3 { font: 800 22px var(--ft); margin-bottom: 12px; } .dlg .grid { display: flex; gap: 12px; margin-top: 14px; } .dlg .c { width: 100px; } .dlg .c .pic { width: 100px; height: 146px; position: relative; } .dlg .c small { display: block; margin-top: 6px; font-weight: 700; font-size: 12px; }
+.dlg .add { position: absolute; left: 8px; bottom: 8px; padding: 5px 10px; border-radius: 99px; background: rgba(15,17,24,.8); color: #fff; font: 800 11px var(--fb); border: 0; }
+
+/* ======== DA 1 : actuelle (rien de plus : variables par défaut) ======== */
+
+/* ======== DA 2 : Minimal sombre ======== */
+.mock[data-da="min"] { --bg:#0e0f13; --side:#0e0f13; --panel:#14161c; --panel2:#1c1f27; --text:#e8e9ee; --muted:#7c8196; --accent:#7c6cff; --line:#23252e; --r:10px; --rb:8px; --bsh:none; --bb:1px solid var(--line); --ft:Inter; --fb:Inter; --t1:#ff6b8b; --t2:#ffa94d; --t3:#ffd43b; --t4:#51cf66; --t5:#4dabf7; --board:#14161c; --note:transparent; --note-ink:#e8e9ee; --pol:transparent; --rowfx:rgba(14,15,19,.85); --sidebd:1px solid var(--line); --tsep:#1c1f27; }
+.mock[data-da="min"] .btn { font-weight: 600; } .mock[data-da="min"] .tiers::before { width: 3px; } .mock[data-da="min"] .logo, .mock[data-da="min"] h2, .mock[data-da="min"] .tl { font-weight: 700; letter-spacing: -.02em; }
+.mock[data-da="min"] .note { position: static; transform: none; background: none; padding: 0 0 10px; font-size: 13px; color: var(--muted); box-shadow: none; text-transform: uppercase; letter-spacing: .08em; }
+.mock[data-da="min"] .board { padding: 16px; } .mock[data-da="min"] .bt { margin: -34px 0 12px auto; } .mock[data-da="min"] .pol { padding: 0; box-shadow: none; transform: none !important; } .mock[data-da="min"] .pol .pic { border-radius: 8px; border: 1px solid #23252e; }
+.mock[data-da="min"] .pic { box-shadow: none; border: 1px solid #23252e; } .mock[data-da="min"] .logo i { border-radius: 8px; }
+.mock[data-da="min"] .tl { font-size: 38px; } .mock[data-da="min"] .row { height: 64px; } .mock[data-da="min"] .sd-i.on { background: #1c1f27; color: #fff; box-shadow: inset 2px 0 0 var(--accent); font-weight: 600; }
+.mock[data-da="min"] .btn.p { box-shadow: 0 0 0 1px #9b8fff inset; }
+
+/* ======== DA 3 : Néon nuit ======== */
+.mock[data-da="neon"] { --bg:#0a0612; --side:#0d0818; --panel:#120b20; --panel2:#1c1233; --text:#f1eaff; --muted:#9a8cc2; --accent:#19e6d4; --accent-ink:#05161a; --line:#2c1f4d; --r:8px; --rb:8px; --bsh:0 0 0 transparent; --bb:1px solid #3b2a6b; --glow:0 0 16px rgba(25,230,212,.55); --ft:'Space Grotesk'; --fb:'Space Grotesk'; --t1:#ff3d9a; --t2:#ff9f1c; --t3:#f9f871; --t4:#19e6d4; --t5:#8b5cff; --board:#120b20; --note:transparent; --note-ink:#19e6d4; --pol:transparent; --rowfx:rgba(10,6,18,.85); --sidebd:1px solid #2c1f4d; --tsep:#2c1f4d; }
+.mock[data-da="neon"] .btn { text-transform: uppercase; letter-spacing: .06em; font-size: 12px; border-color: #4a3590; } .mock[data-da="neon"] .btn.p { border-color: #19e6d4; }
+.mock[data-da="neon"] .tl { text-shadow: 0 0 14px currentColor; } .mock[data-da="neon"] .tiers { box-shadow: 0 0 24px rgba(139,92,255,.25); border-color: #4a3590; } .mock[data-da="neon"] .tiers::before { box-shadow: 0 0 14px rgba(255,61,154,.7); width: 5px; }
+.mock[data-da="neon"] .note { position: static; transform: none; background: none; padding: 0 0 10px; color: var(--accent); text-shadow: 0 0 10px var(--accent); font-size: 14px; text-transform: uppercase; letter-spacing: .14em; box-shadow: none; }
+.mock[data-da="neon"] .board { padding: 16px; border-style: dashed; border-color: #4a3590; } .mock[data-da="neon"] .bt { margin: -34px 0 12px auto; } .mock[data-da="neon"] .pol { padding: 0; box-shadow: 0 0 14px rgba(139,92,255,.35); transform: none !important; } .mock[data-da="neon"] .pol .pic { border: 1px solid #8b5cff; border-radius: 4px; }
+.mock[data-da="neon"] .pic { box-shadow: 0 0 10px rgba(139,92,255,.35); border-color: #3b2a6b; } .mock[data-da="neon"] .sd-i.on { background: rgba(25,230,212,.12); color: #19e6d4; box-shadow: inset 2px 0 0 #19e6d4; }
+.mock[data-da="neon"] .row { border-color: #3b2a6b; } .mock[data-da="neon"] .row .num { text-shadow: 0 0 12px currentColor; } .mock[data-da="neon"] .chip.on { box-shadow: var(--glow); } .mock[data-da="neon"] .logo b, .mock[data-da="neon"] .logo span { text-shadow: 0 0 14px currentColor; }
+
+/* ======== DA 4 : Verre (aurore) ======== */
+.mock[data-da^="glass"] { --bg:#0b1020; --side:rgba(255,255,255,.05); --panel:rgba(255,255,255,.07); --panel2:rgba(255,255,255,.12); --text:#f4f6ff; --muted:#a9b2d6; --accent:#6aa7ff; --accent-ink:#06142e; --line:rgba(255,255,255,.18); --r:20px; --rb:14px; --bsh:0 8px 24px rgba(0,0,0,.25); --bb:1px solid var(--line); --ft:'Fredoka'; --fb:Inter; --t1:#ff8fb1; --t2:#ffc46b; --t3:#fff09a; --t4:#7ff0c0; --t5:#8fb4ff; --board:rgba(255,255,255,.06); --note:rgba(255,255,255,.18); --note-ink:#fff; --pol:rgba(255,255,255,.9); --rowfx:rgba(11,16,32,.7); --sidebd:1px solid var(--line); --tsep:rgba(255,255,255,.1);
+  background: radial-gradient(900px 500px at 15% 0%, #3b2a8f 0%, transparent 60%), radial-gradient(800px 500px at 90% 20%, #0f7aa8 0%, transparent 60%), radial-gradient(900px 600px at 50% 100%, #8a2c7a 0%, transparent 60%), #0b1020; }
+.mock[data-da^="glass"] .side, .mock[data-da^="glass"] .tiers, .mock[data-da^="glass"] .board, .mock[data-da^="glass"] .row, .mock[data-da^="glass"] .dlg, .mock[data-da^="glass"] .btn, .mock[data-da^="glass"] .chip, .mock[data-da^="glass"] .input { backdrop-filter: blur(16px); }
+.mock[data-da^="glass"] .btn.p { background: linear-gradient(180deg, #8fbaff, #5b95f5); } .mock[data-da^="glass"] .tiers::before { width: 6px; border-radius: 6px; }
+.mock[data-da^="glass"] .note { background: rgba(255,255,255,.18); backdrop-filter: blur(10px); border-radius: 99px; transform: none; top: -16px; border: 1px solid rgba(255,255,255,.3); box-shadow: none; }
+.mock[data-da^="glass"] .sd-i.on { background: rgba(255,255,255,.18); color: #fff; border: 1px solid rgba(255,255,255,.3); box-shadow: none; }
+.mock[data-da^="glass"] .pic { border-radius: 12px; border: 1px solid rgba(255,255,255,.3); } .mock[data-da^="glass"] .pol { border-radius: 14px; padding: 4px; } .mock[data-da^="glass"] .pol .pic { border-radius: 10px; }
+
+/* ======== DA 5 : Sakura (pastel clair) ======== */
+.mock[data-da="sakura"] { --bg:#fff4f1; --side:#ffe6ec; --panel:#ffffff; --panel2:#ffe9ef; --text:#4a2c3a; --muted:#a07a8b; --accent:#ff6f9c; --accent-ink:#fff; --line:#f0b9cb; --r:22px; --rb:99px; --bsh:0 4px 0 #f0b9cb; --bb:2px solid #f0b9cb; --ft:'Fredoka'; --fb:'Fredoka'; --t1:#ff7aa2; --t2:#ffb36b; --t3:#ffd966; --t4:#7fd8a8; --t5:#8fb8ff; --board:#fbe3c8; --note:#fff7a8; --note-ink:#6b4b1b; --pol:#fff; --rowfx:rgba(60,20,40,.78); --sidebd:2px solid #f0b9cb; --tsep:#f9d5e0; }
+.mock[data-da="sakura"] .btn { color: #8b4a63; } .mock[data-da="sakura"] .btn.p { color: #fff; } .mock[data-da="sakura"] .btn.d { background: #ff8c8c; color: #fff; }
+.mock[data-da="sakura"] .logo i { background: #fff; } .mock[data-da="sakura"] .sd-i.on { color: #fff; border-radius: 99px; } .mock[data-da="sakura"] .pl { color: #8b4a63; }
+.mock[data-da="sakura"] .tier .tl small, .mock[data-da="sakura"] .sd-i { color: #a07a8b; } .mock[data-da="sakura"] .sd-i.on { color: #fff; } .mock[data-da="sakura"] .sec { color: #c08aa0; }
+.mock[data-da="sakura"] .pic { border-color: #fff; box-shadow: 0 3px 0 rgba(240,185,203,.9); border-radius: 14px; } .mock[data-da="sakura"] .chip { color: #8b4a63; } .mock[data-da="sakura"] .chip.on { color: #fff; }
+.mock[data-da="sakura"] .input { background: #fff; } .mock[data-da="sakura"] .range::after { border-color: #fff; } .mock[data-da="sakura"] .pol .pic { border-radius: 2px; }
+.mock[data-da="sakura"] .row .num { color: #fff; } .mock[data-da="sakura"] .row { border-color: #f0b9cb; box-shadow: 0 4px 0 #f0b9cb; } .mock[data-da="sakura"] .dlg h3 { color: #4a2c3a; } .mock[data-da="sakura"] .dlg small { color: #4a2c3a; }
+.mock[data-da="sakura"] .tl { filter: saturate(1.1); }
+
+/* ======== DA 6 : Manga (noir & blanc + rouge) ======== */
+.mock[data-da="manga"] { --bg:#f4f1ea; --side:#ffffff; --panel:#ffffff; --panel2:#ffe14d; --text:#111; --muted:#555; --accent:#e5262d; --accent-ink:#fff; --line:#111; --r:4px; --rb:4px; --bsh:4px 4px 0 #111; --bb:3px solid #111; --ft:'Bangers'; --fb:Inter; --t1:#e5262d; --t2:#111; --t3:#e5262d; --t4:#111; --t5:#e5262d; --board:#ffffff; --note:#ffe14d; --note-ink:#111; --pol:#fff; --rowfx:rgba(17,17,17,.82); --sidebd:3px solid #111; --tsep:#111;
+  background-image: radial-gradient(#d9d3c4 1.2px, transparent 1.3px); background-size: 9px 9px; }
+.mock[data-da="manga"] .btn { font-weight: 800; text-transform: uppercase; letter-spacing: .03em; } .mock[data-da="manga"] .btn.d { background: #111; color: #fff; }
+.mock[data-da="manga"] .logo { font-size: 36px; letter-spacing: .03em; } .mock[data-da="manga"] .logo span { color: #111; } .mock[data-da="manga"] .logo b { color: #e5262d; } .mock[data-da="manga"] .logo i { background: #111; border-radius: 4px; }
+.mock[data-da="manga"] h2, .mock[data-da="manga"] .tl, .mock[data-da="manga"] .row .num { letter-spacing: .04em; font-weight: 400; } .mock[data-da="manga"] h2 { font-size: 40px; } .mock[data-da="manga"] .tl { font-size: 58px; -webkit-text-stroke: 2px #111; paint-order: stroke fill; }
+.mock[data-da="manga"] .tiers { background: #fff; } .mock[data-da="manga"] .tiers::before { background: #111; width: 8px; } .mock[data-da="manga"] .tl small { color: #555; font-weight: 700; }
+.mock[data-da="manga"] .sd-i { color: #333; font-weight: 700; } .mock[data-da="manga"] .sd-i.on { background: #e5262d; color: #fff; border: 2px solid #111; }
+.mock[data-da="manga"] .sd-h .n { color: #111; } .mock[data-da="manga"] .pl { background: #ffe14d; } .mock[data-da="manga"] .range { background: #ccc; } .mock[data-da="manga"] .range::after { background: #e5262d; }
+.mock[data-da="manga"] .board { background-image: repeating-linear-gradient(135deg, #111 0 2px, #fff 2px 9px); } .mock[data-da="manga"] .note { border: 3px solid #111; border-radius: 2px; font-size: 20px; letter-spacing: .04em; font-weight: 400; transform: rotate(-3deg); } .mock[data-da="manga"] .note b { background: #111; color: #fff; }
+.mock[data-da="manga"] .pic { border: 3px solid #111; border-radius: 2px; box-shadow: 3px 3px 0 #111; } .mock[data-da="manga"] .pol { border: 3px solid #111; box-shadow: 4px 4px 0 #111; border-radius: 2px; } .mock[data-da="manga"] .pol .pic { border: 0; box-shadow: none; }
+.mock[data-da="manga"] .row .num { color: #ffe14d; -webkit-text-stroke: 2px #111; font-size: 40px; } .mock[data-da="manga"] .row { box-shadow: 4px 4px 0 #111; } .mock[data-da="manga"] .row b { font-family: Inter; font-weight: 800; }
+.mock[data-da="manga"] .chip { background: #fff; border-width: 2px; } .mock[data-da="manga"] .chip.on { background: #e5262d; } .mock[data-da="manga"] .input { background: #fff; } .mock[data-da="manga"] .dlg h3 { font-weight: 400; font-size: 28px; } .mock[data-da="manga"] .dlg .add { background: #111; }
+.mock[data-da="manga"] .sec { color: #111; } .mock[data-da="manga"] .sd-l { border-color: #111; } .mock[data-da="manga"] .bt .in { border-color: #111; }
+.mock[data-da="min"] .bt .in, .mock[data-da="neon"] .bt .in, .mock[data-da^="glass"] .bt .in { background: var(--panel2); color: var(--muted); border: var(--bb); }
+.mock[data-da="sakura"] .bt .in { background: #fff; color: #a07a8b; }
+
+/* ======== DA 5b : Sakura nuit (pastel sombre) ======== */
+.mock[data-da="sakuranuit"] { --bg:#1d1220; --side:#271828; --panel:#2f1f33; --panel2:#46304c; --text:#ffeef6; --muted:#c9a0b8; --accent:#ff7fae; --accent-ink:#3a0f24; --line:#120a14; --r:22px; --rb:99px; --bsh:0 4px 0 #120a14; --bb:2px solid #120a14; --ft:'Fredoka'; --fb:'Fredoka'; --t1:#ff8fb4; --t2:#ffb98a; --t3:#ffdf8a; --t4:#8fe3b4; --t5:#9fbfff; --board:#4b3140; --note:#ffeaa0; --note-ink:#5a3d12; --pol:#fff4f8; --rowfx:rgba(29,18,32,.8); --sidebd:2px solid #120a14; --tsep:#3d2a42; }
+.mock[data-da="sakuranuit"] .btn.d { background: #c4506a; color: #fff; } .mock[data-da="sakuranuit"] .btn { box-shadow: 0 4px 0 #120a14; }
+.mock[data-da="sakuranuit"] .logo i { background: #1d1220; } .mock[data-da="sakuranuit"] .sd-i.on { border-radius: 99px; } .mock[data-da="sakuranuit"] .sd-i { color: #c9a0b8; } .mock[data-da="sakuranuit"] .sd-i.on { color: #3a0f24; }
+.mock[data-da="sakuranuit"] .pic { border-color: #ffe3ef; box-shadow: 0 3px 0 rgba(0,0,0,.5); border-radius: 14px; } .mock[data-da="sakuranuit"] .pol .pic { border-radius: 2px; box-shadow: none; }
+.mock[data-da="sakuranuit"] .tiers { box-shadow: 0 4px 0 #120a14, 0 0 28px rgba(255,127,174,.12); } .mock[data-da="sakuranuit"] .tiers::before { width: 8px; border-radius: 0 8px 8px 0; }
+.mock[data-da="sakuranuit"] .chip.on { color: #3a0f24; } .mock[data-da="sakuranuit"] .input { background: #271828; } .mock[data-da="sakuranuit"] .row .num { color: #fff; } .mock[data-da="sakuranuit"] .btn.p { box-shadow: 0 4px 0 #b24673; }
+.mock[data-da="sakuranuit"] .bt .in { background: #fff4f8; color: #7a4a63; } .mock[data-da="sakuranuit"] .dlg .add { background: #3a0f24; } .mock[data-da="sakuranuit"] .sec { color: #c9a0b8; }
+
+/* ======== Variantes de Verre ======== */
+.mock[data-da="glassglace"] { --accent:#5cc8ff; --accent-ink:#04182a; --t1:#8fd3ff; --t2:#a8e6ff; --t3:#d6f6ff; --t4:#7ff0d8; --t5:#8fa8ff; background: radial-gradient(900px 500px at 15% 0%, #1b4fa8 0%, transparent 60%), radial-gradient(800px 500px at 90% 20%, #0f8aa8 0%, transparent 60%), radial-gradient(900px 600px at 50% 100%, #2a2f8f 0%, transparent 60%), #06101f; }
+.mock[data-da="glassglace"] .btn.p { background: linear-gradient(180deg, #8fe0ff, #3fb4f0); }
+.mock[data-da="glassrose"] { --accent:#ff8ac4; --accent-ink:#3a0a26; --t1:#ff8fc0; --t2:#ffb3a0; --t3:#ffe0a0; --t4:#b9f0c8; --t5:#c0a8ff; background: radial-gradient(900px 500px at 15% 0%, #8a2c7a 0%, transparent 60%), radial-gradient(800px 500px at 90% 20%, #4b2fa8 0%, transparent 60%), radial-gradient(900px 600px at 50% 100%, #b03a5a 0%, transparent 60%), #14081c; }
+.mock[data-da="glassrose"] .btn.p { background: linear-gradient(180deg, #ffa8d6, #f06aae); }
+.mock[data-da="glassambre"] { --accent:#ffb454; --accent-ink:#2e1600; --t1:#ff8a7a; --t2:#ffb454; --t3:#ffe07a; --t4:#9fe8b4; --t5:#ffa0d0; background: radial-gradient(900px 500px at 15% 0%, #b0451f 0%, transparent 60%), radial-gradient(800px 500px at 90% 20%, #8a2c5a 0%, transparent 60%), radial-gradient(900px 600px at 50% 100%, #d28a1f 0%, transparent 60%), #160a0a; }
+.mock[data-da="glassambre"] .btn.p { background: linear-gradient(180deg, #ffd08a, #f09a30); }
+.mock[data-da="glassnuit"] { --accent:#7aa2ff; --accent-ink:#05122e; --side:rgba(255,255,255,.035); --panel:rgba(255,255,255,.045); --panel2:rgba(255,255,255,.09); --line:rgba(255,255,255,.12); --bg:#07080d; background: radial-gradient(700px 420px at 10% 0%, rgba(80,70,200,.35) 0%, transparent 60%), radial-gradient(700px 420px at 95% 100%, rgba(30,120,170,.3) 0%, transparent 60%), #07080d; }
+.mock[data-da="glassclair"] { --text:#1c2340; --muted:#5d6890; --accent:#4f8cff; --accent-ink:#fff; --side:rgba(255,255,255,.55); --panel:rgba(255,255,255,.55); --panel2:rgba(255,255,255,.75); --line:rgba(255,255,255,.9); --bsh:0 8px 24px rgba(60,80,160,.18); --note:rgba(255,255,255,.85); --note-ink:#1c2340; --rowfx:rgba(20,30,70,.7); --tsep:rgba(60,80,160,.12);
+  background: radial-gradient(900px 500px at 10% 0%, #ffd1e8 0%, transparent 60%), radial-gradient(900px 500px at 95% 15%, #b8d8ff 0%, transparent 60%), radial-gradient(900px 600px at 50% 100%, #d9c8ff 0%, transparent 60%), #eef2ff; }
+.mock[data-da="glassclair"] .tl small, .mock[data-da="glassclair"] .sd-i, .mock[data-da="glassclair"] .sec { color: #5d6890; } .mock[data-da="glassclair"] .sd-i.on { color: #fff; background: #4f8cff; } .mock[data-da="glassclair"] .btn { color: #1c2340; } .mock[data-da="glassclair"] .btn.p { color: #fff; background: linear-gradient(180deg, #7fb0ff, #4f8cff); } .mock[data-da="glassclair"] .btn.d { color: #fff; background: #e0566e; }
+.mock[data-da="glassclair"] .chip { color: #1c2340; } .mock[data-da="glassclair"] .chip.on { color: #fff; } .mock[data-da="glassclair"] .dlg small, .mock[data-da="glassclair"] .dlg h3, .mock[data-da="glassclair"] .logo, .mock[data-da="glassclair"] h2, .mock[data-da="glassclair"] .sd-h .n { color: #1c2340; } .mock[data-da="glassclair"] .logo span { color: #ff6b57; } .mock[data-da="glassclair"] .logo b { color: #4f8cff; }
+.mock[data-da="glassclair"] .note { color: #1c2340; border-color: #fff; } .mock[data-da="glassclair"] .pl { color: #1c2340; } .mock[data-da="glassclair"] .input, .mock[data-da="glassclair"] .bt .in { color: #5d6890; background: rgba(255,255,255,.8); } .mock[data-da="glassclair"] .tiers::before { width: 6px; } .mock[data-da="glassclair"] .pic { border-color: #fff; }
+
+/* ======== Hybrides : actuelle x sakura, bleu dominant ======== */
+.mock[data-da="cielnuit"] { --bg:#1b2335; --side:#17202f; --panel:#243049; --panel2:#33425f; --text:#eef3ff; --muted:#9fb0d4; --accent:#5b9bff; --accent-ink:#fff; --line:#0e1420; --r:22px; --rb:99px; --bsh:0 4px 0 #0e1420; --bb:2px solid #0e1420; --ft:'Fredoka'; --fb:'Fredoka'; --t1:#ff8fb4; --t2:#ffbf8a; --t3:#ffe48a; --t4:#8fe6c0; --t5:#8fb8ff; --board:#3a4a72; --note:#fff2a8; --note-ink:#4b3a12; --pol:#fff; --rowfx:rgba(20,28,46,.8); --sidebd:2px solid #0e1420; --tsep:#2c3a58; }
+.mock[data-da="cielnuit"] .btn.p { box-shadow: 0 4px 0 #2f66c4; } .mock[data-da="cielnuit"] .btn.d { background: #c4506a; color: #fff; } .mock[data-da="cielnuit"] .logo i { background: #101828; }
+.mock[data-da="cielnuit"] .pic { border-color: #e6f0ff; box-shadow: 0 3px 0 rgba(0,0,0,.45); border-radius: 14px; } .mock[data-da="cielnuit"] .pol .pic { border-radius: 2px; box-shadow: none; } .mock[data-da="cielnuit"] .tiers::before { width: 8px; border-radius: 0 8px 8px 0; }
+.mock[data-da="cielnuit"] .sd-i.on { border-radius: 99px; box-shadow: 0 3px 0 #2f66c4; } .mock[data-da="cielnuit"] .input { background: #17202f; } .mock[data-da="cielnuit"] .bt .in { background: #eef3ff; color: #4a5a80; } .mock[data-da="cielnuit"] .chip.on { box-shadow: 0 3px 0 #2f66c4; }
+.mock[data-da="cielnuit"] .dlg .add { background: #17202f; } .mock[data-da="cielnuit"] .row .num { color: #fff; }
+.mock[data-da="cielclair"] { --bg:#eef4ff; --side:#e0ecff; --panel:#ffffff; --panel2:#e3eeff; --text:#1f2d4d; --muted:#6f82ab; --accent:#4f8cff; --accent-ink:#fff; --line:#b9cdf2; --r:22px; --rb:99px; --bsh:0 4px 0 #b9cdf2; --bb:2px solid #b9cdf2; --ft:'Fredoka'; --fb:'Fredoka'; --t1:#ff7aa2; --t2:#ffb36b; --t3:#ffd966; --t4:#7fd8a8; --t5:#6ea0ff; --board:#dbe8ff; --note:#fff3a0; --note-ink:#5a4a14; --pol:#fff; --rowfx:rgba(25,40,80,.72); --sidebd:2px solid #b9cdf2; --tsep:#dbe7fb; }
+.mock[data-da="cielclair"] .btn { color: #2d4a85; } .mock[data-da="cielclair"] .btn.p { color: #fff; box-shadow: 0 4px 0 #3a70d4; } .mock[data-da="cielclair"] .btn.d { background: #ff8c9c; color: #fff; }
+.mock[data-da="cielclair"] .logo i { background: #fff; } .mock[data-da="cielclair"] .sd-i { color: #6f82ab; } .mock[data-da="cielclair"] .sd-i.on { color: #fff; border-radius: 99px; box-shadow: 0 3px 0 #3a70d4; } .mock[data-da="cielclair"] .pl { color: #2d4a85; }
+.mock[data-da="cielclair"] .pic { border-color: #fff; box-shadow: 0 3px 0 rgba(120,150,210,.6); border-radius: 14px; } .mock[data-da="cielclair"] .pol .pic { border-radius: 2px; } .mock[data-da="cielclair"] .chip { color: #2d4a85; } .mock[data-da="cielclair"] .chip.on { color: #fff; }
+.mock[data-da="cielclair"] .input, .mock[data-da="cielclair"] .bt .in { background: #fff; color: #6f82ab; } .mock[data-da="cielclair"] .range::after { border-color: #fff; } .mock[data-da="cielclair"] .row .num { color: #fff; } .mock[data-da="cielclair"] .row { box-shadow: 0 4px 0 #b9cdf2; }
+.mock[data-da="cielclair"] .dlg small, .mock[data-da="cielclair"] .dlg h3 { color: #1f2d4d; } .mock[data-da="cielclair"] .sec { color: #7f93bd; } .mock[data-da="cielclair"] .tiers::before { width: 8px; border-radius: 0 8px 8px 0; } .mock[data-da="cielclair"] .tl small { color: #6f82ab; } .mock[data-da="cielclair"] .dlg .add { background: #1f2d4d; }
+</style></head><body>
+<div class="picker"><b>DA</b><span id="btns"></span></div>
+<div class="blurb" id="blurb"></div>
+<div class="mock" id="m" data-da="actuelle"></div>
+<script>
+const base = 'https://cdn.myanimelist.net/images/anime/';
+const P = ['4/19644.jpg', '1079/138100.jpg', '1223/96541.jpg', '13/11460.jpg', '1791/154233.jpg', '1958/158341.jpg', '1639/148263.jpg', '12/76049.jpg'];
+const names = ['Cowboy Bebop', 'Death Note', 'Fullmetal Alchemist: Brotherhood', 'Great Teacher Onizuka', 'Ikoku Nikki'];
+const pic = (i, c = '') => `<span class="pic ${c}" style="background-image:url(${base}${P[i % P.length]})"></span>`;
+const DAS = {
+  actuelle: ['Actuelle', 'Ardoise bleue, boutons épais avec relief, bords sombres, tableau en liège. Ce que tu as aujourd’hui, pour comparer.'],
+  min: ['Minimal sombre', 'Noir profond, traits fins, aucun relief, un seul accent violet. Très sobre et rapide à lire, style Linear / Notion sombre. L’affiche est la seule chose qui ressort.'],
+  neon: ['Néon nuit', 'Fond violet très sombre, contours fins, lueurs cyan et magenta, lettres des tiers qui brillent, titres en capitales. Ambiance cyberpunk / arcade.'],
+  glass: ['Verre (aurore)', 'Fond dégradé coloré flou, panneaux en verre dépoli translucides, très arrondi, doux et moderne (style iOS / Windows 11).'],
+  sakura: ['Sakura (pastel clair)', 'Thème CLAIR rose et crème, formes toutes rondes, police ronde et joyeuse. Mignon, « kawaii ». Le seul thème clair avec Manga.'],
+  glassglace: ['Verre glacier', 'Verre à dominante BLEU cyan : aurore bleue et turquoise, accent bleu ciel. Le plus proche de ton bleu actuel.'],
+  glassrose: ['Verre rose', 'Verre aux tons rose et violet, accent rose bonbon. Plus doux, plus « sakura ».'],
+  glassambre: ['Verre ambre', 'Verre chaud : orange, rose et prune, accent ambre. Ambiance coucher de soleil.'],
+  glassnuit: ['Verre nuit', 'Verre très SOMBRE et discret : presque noir avec deux halos colorés. Plus de contraste, moins coloré.'],
+  glassclair: ['Verre clair', 'Verre en version CLAIRE : fond pastel rose et bleu, panneaux blancs givrés, texte foncé, accent bleu.'],
+  cielnuit: ['Ciel nuit (actuelle × sakura)', 'Mélange : l’ardoise bleue et les boutons à relief de la DA actuelle, avec les formes toutes rondes, la police ronde et les tiers pastel de Sakura. Le BLEU reste la couleur principale, le rose n’apparaît que dans les tiers.'],
+  cielclair: ['Ciel clair (actuelle × sakura)', 'Même mélange en version CLAIRE : fond bleu très pâle, panneaux blancs, accent bleu, tiers pastel. Comme Sakura mais en bleu.'],
+  sakuranuit: ['Sakura nuit (pastel sombre)', 'Le Sakura passé en SOMBRE : fond aubergine, panneaux prune, rose pastel en accent, mêmes formes toutes rondes et police ronde. Doux et chaleureux, sans le côté blanc.'],
+  manga: ['Manga', 'Papier crème à trame de points, gros traits noirs, ombres dures, rouge et jaune vifs, titres en police de bande dessinée. Le plus marqué.'],
+};
+function html() {
+  const tiers = [['S', 'var(--t1)', 'Chef-d’œuvre', [0, 1, 2, 3]], ['A', 'var(--t2)', 'Excellent', [4, 5, 6]], ['B', 'var(--t3)', 'Bien', [7, 0]], ['C', 'var(--t4)', 'Moyen', []]];
+  return `
+  <aside class="side">
+    <div class="logo"><i><s></s><s></s><s></s></i><span>Ran</span><b>ku</b></div>
+    <div class="sd-h"><span class="n">☰ Tier lists</span><span class="pl">+</span></div>
+    <div class="sd-l"><div class="sd-i on">Mes animés</div><div class="sd-i">Persos préférés</div></div>
+    <div class="sd-h"><span class="n">🏆 Tops</span><span class="pl">+</span></div>
+    <div class="sd-l"><div class="sd-i">Mon top 10</div></div>
+  </aside>
+  <main class="main">
+    <div class="pgt"><h2>Mes animés</h2><button class="btn">✎ Modifier</button></div>
+    <div class="tools"><button class="btn p">＋ Ajouter</button><button class="btn">⬇ Importer</button><button class="btn">Tri rapide</button><button class="btn">↺ Réinitialiser</button><span class="sp"></span><span class="range"></span><button class="btn">⇪ Partager</button></div>
+    <div class="tiers">${tiers.map(([l, c, d, ids]) => `<div class="tier"><div class="tl" style="color:${c}">${l}<small>${d}</small></div><div class="tz">${ids.map((i) => pic(i)).join('')}</div></div>`).join('')}</div>
+    <div class="board"><div class="note">Non classé <b>24</b></div><div class="bt"><span class="in">Filtrer…</span><span class="in">Trier…</span></div><div class="pols">${[3, 5, 1, 6, 2, 4, 0].map((i) => `<div class="pol">${pic(i)}</div>`).join('')}</div></div>
+
+    <div class="sec">Un top</div>
+    <div class="rows">${names.slice(0, 3).map((n, i) => `<div class="row"><span class="bgp" style="background-image:url(${base}${P[i]})"></span><span class="num" style="color:${['#ffd24d', '#cfd6e4', '#e0a070'][i]}">${i + 1}</span>${pic(i)}<b>${n}</b></div>`).join('')}</div>
+
+    <div class="sec">Boutons, pastilles, champs</div>
+    <div class="comp"><button class="btn p">＋ Ajouter</button><button class="btn">Secondaire</button><button class="btn d">Supprimer</button><span class="chip on">Tous</span><span class="chip">Séries</span><span class="chip">Films</span><span class="input">Rechercher un animé…</span></div>
+
+    <div class="sec">Fenêtre « Ajouter des animés »</div>
+    <div class="dlg"><h3>Ajouter des animés</h3><span class="input" style="display:block">Titre d’un animé…</span>
+      <div class="grid">${[0, 1, 2, 3].map((i) => `<div class="c"><div class="pic" style="background-image:url(${base}${P[i]});position:relative"><span class="add">＋ Ajouter</span></div><small>${names[i % 5].slice(0, 16)}</small></div>`).join('')}</div></div>
+  </main>`;
+}
+const m = document.getElementById('m');
+m.innerHTML = html();
+document.getElementById('btns').innerHTML = Object.entries(DAS).map(([k, [n]]) => `<button data-k="${k}">${n}</button>`).join(' ');
+function pick(k) {
+  m.dataset.da = k;
+  document.querySelectorAll('.picker button').forEach((b) => b.classList.toggle('on', b.dataset.k === k));
+  document.getElementById('blurb').innerHTML = `<b>${DAS[k][0]}</b> — ${DAS[k][1]}`;
+  history.replaceState(null, '', '#' + k);
+}
+document.getElementById('btns').addEventListener('click', (e) => { const b = e.target.closest('[data-k]'); if (b) pick(b.dataset.k); });
+pick(DAS[location.hash.slice(1)] ? location.hash.slice(1) : 'actuelle');
+</script></body></html>
