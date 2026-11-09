@@ -1043,15 +1043,15 @@ async function buildShareImage(list, withNames = false) {
     keys.forEach((k, i) => {
       const px = x0 + LABEL + 6 + (i % perRow) * (PW + GAP), py = y + ROWPAD + Math.floor(i / perRow) * (CELL + GAP);
       drawPoster(ctx, imgs.get(k), list.items[k].t, px, py, PW, PH);
-      if (withNames) { // comme au survol sur la page : titre en bas à gauche sur un dégradé sombre, pastille ×N en bas à droite
-        const it = list.items[k], n = it.m && it.m.length > 1 ? it.m.length : 0;
+      if (withNames) { // comme au survol sur la page : titre en bas à gauche sur un dégradé sombre
+        const it = list.items[k];
         ctx.save(); rr(ctx, px, py, PW, PH, 12); ctx.clip();
         const gh = 64, g = ctx.createLinearGradient(0, py + PH - gh, 0, py + PH);
         g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.88)');
         ctx.fillStyle = g; ctx.fillRect(px, py + PH - gh, PW, gh);
         ctx.restore();
         ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.font = '700 12px Inter, sans-serif'; ctx.fillStyle = '#fff';
-        const maxW = PW - 14 - (n ? 30 : 0), lines = []; let line = '';
+        const maxW = PW - 14, lines = []; let line = '';
         for (const wd of it.t.split(' ')) {
           const t = line ? line + ' ' + wd : wd;
           if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = wd; } else line = t;
@@ -1060,12 +1060,6 @@ async function buildShareImage(list, withNames = false) {
         const shown = lines.slice(0, 3);
         if (lines.length > 3) { let l3 = shown[2]; while (l3.length > 1 && ctx.measureText(l3 + '…').width > maxW) l3 = l3.slice(0, -1); shown[2] = l3 + '…'; }
         shown.forEach((t, i2) => { let tt = t; while (tt.length > 1 && ctx.measureText(tt).width > maxW) tt = tt.slice(0, -1); ctx.fillText(tt, px + 7, py + PH - 8 - (shown.length - 1 - i2) * 14); });
-        if (n) { // pastille ×N
-          const label = '×' + n; ctx.font = '800 11px Inter, sans-serif';
-          const tw = ctx.measureText(label).width, bw = tw + 14, bh = 17, bx = px + PW - bw - 5, by = py + PH - bh - 5;
-          rr(ctx, bx, by, bw, bh, bh / 2); ctx.fillStyle = 'rgba(10,14,28,.8)'; ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.stroke();
-          ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(label, bx + bw / 2, by + 12.5);
-        }
       }
     });
     centers.push(y + h / 2);
