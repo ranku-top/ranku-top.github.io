@@ -996,9 +996,12 @@ function drawPoster(ctx, im, title, x, y, w, h) {
 const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
 
 // Même rendu que la page : un bloc arrondi, trait coloré continu à gauche, lueur de chaque tier, lettre qui rayonne, légende dessous.
-async function buildShareImage(list, withNames = false) {
+// opts (aperçus et améliorations) : scale = résolution (2 = nette), cols = jaquettes par ligne, nameSize/outline = noms, tint = voile de couleur par tier, ring = liseré autour des jaquettes
+async function buildShareImage(list, withNames = false, opts = {}) {
+  const O = { scale: 1, cols: 10, nameSize: 13, outline: true, tint: false, ring: true, ...opts }; // par défaut : 10 par ligne, noms lisibles avec contour, liseré de couleur (le voile par tier est écarté)
   try { await Promise.all([document.fonts.load('800 60px "Baloo 2"'), document.fonts.load('600 14px Inter')]); } catch { /* polices système */ }
-  const W = 1200, PAD = 24, LABEL = 170, PW = 100, PH = 142, GAP = 8, ROWPAD = 10, BAR = 12;
+  const PAD = 24, LABEL = 170, PW = 100, PH = 142, GAP = 8, ROWPAD = 10, BAR = 12;
+  const W = O.cols ? PAD * 2 + LABEL + 12 + O.cols * (PW + GAP) : 1200;
   const perRow = Math.floor((W - PAD * 2 - LABEL - 12) / (PW + GAP));
   const sections = list.tiers.map((t) => ({ tier: t, keys: t.items.filter((k) => list.items[k]) }));
   const CELL = PH;
@@ -1012,8 +1015,9 @@ async function buildShareImage(list, withNames = false) {
   const imgs = new Map(await Promise.all([...urls].map(async ([k, u]) => [k, await loadImage(u)])));
 
   const cv = document.createElement('canvas');
-  cv.width = W; cv.height = H;
+  cv.width = Math.round(W * O.scale); cv.height = Math.round(H * O.scale);
   const ctx = cv.getContext('2d');
+  ctx.scale(O.scale, O.scale); // on dessine toujours en unités « logiques » : la résolution ne change que la netteté
   ctx.fillStyle = '#23262f'; ctx.fillRect(0, 0, W, H); // fond de la page
 
   const x0 = PAD, y0 = PAD, w = W - PAD * 2;
@@ -1027,6 +1031,7 @@ async function buildShareImage(list, withNames = false) {
   sections.forEach(({ tier, keys }, idx) => {
     const h = heights[idx];
     if (idx) { ctx.fillStyle = '#0f1117'; ctx.fillRect(x0, y - 2, w, 2); } // trait sombre entre deux tiers
+    if (O.tint) { const tg = ctx.createLinearGradient(x0 + BAR, 0, x0 + w, 0); tg.addColorStop(0, hexA(tier.color, .16)); tg.addColorStop(.5, hexA(tier.color, .07)); tg.addColorStop(1, hexA(tier.color, .03)); ctx.fillStyle = tg; ctx.fillRect(x0 + BAR, y, w - BAR, h); } // voile léger de la couleur du tier
 
     // lettre : couleur du tier à plat, comme sur la page
     const long = tier.name.length > 3, size = long ? 34 : 64;
@@ -1043,6 +1048,7 @@ async function buildShareImage(list, withNames = false) {
     keys.forEach((k, i) => {
       const px = x0 + LABEL + 6 + (i % perRow) * (PW + GAP), py = y + ROWPAD + Math.floor(i / perRow) * (CELL + GAP);
       drawPoster(ctx, imgs.get(k), list.items[k].t, px, py, PW, PH);
+      if (O.ring) { rr(ctx, px + 1, py + 1, PW - 2, PH - 2, 11); ctx.lineWidth = 2; ctx.strokeStyle = hexA(tier.color, .8); ctx.stroke(); }
       if (withNames) { // comme au survol sur la page : titre en bas à gauche sur un dégradé sombre
         const it = list.items[k];
         ctx.save(); rr(ctx, px, py, PW, PH, 12); ctx.clip();
@@ -1050,8 +1056,8 @@ async function buildShareImage(list, withNames = false) {
         g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.88)');
         ctx.fillStyle = g; ctx.fillRect(px, py + PH - gh, PW, gh);
         ctx.restore();
-        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.font = '700 12px Inter, sans-serif'; ctx.fillStyle = '#fff';
-        const maxW = PW - 14, lines = []; let line = '';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.font = '700 ' + O.nameSize + 'px Inter, sans-serif'; ctx.fillStyle = '#fff';
+        const LH = O.nameSize + 2, maxW = PW - 14, lines = []; let line = '';
         for (const wd of it.t.split(' ')) {
           const t = line ? line + ' ' + wd : wd;
           if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = wd; } else line = t;
@@ -1059,7 +1065,13 @@ async function buildShareImage(list, withNames = false) {
         lines.push(line);
         const shown = lines.slice(0, 3);
         if (lines.length > 3) { let l3 = shown[2]; while (l3.length > 1 && ctx.measureText(l3 + '…').width > maxW) l3 = l3.slice(0, -1); shown[2] = l3 + '…'; }
-        shown.forEach((t, i2) => { let tt = t; while (tt.length > 1 && ctx.measureText(tt).width > maxW) tt = tt.slice(0, -1); ctx.fillText(tt, px + 7, py + PH - 8 - (shown.length - 1 - i2) * 14); });
+        ctx.lineJoin = 'round';
+        shown.forEach((t, i2) => {
+          let tt = t; while (tt.length > 1 && ctx.measureText(tt).width > maxW) tt = tt.slice(0, -1);
+          const ty = py + PH - 8 - (shown.length - 1 - i2) * LH;
+          if (O.outline) { ctx.lineWidth = 3.2; ctx.strokeStyle = 'rgba(0,0,0,.9)'; ctx.strokeText(tt, px + 7, ty); }
+          ctx.fillText(tt, px + 7, ty);
+        });
       }
     });
     centers.push(y + h / 2);
@@ -1075,13 +1087,28 @@ async function buildShareImage(list, withNames = false) {
   return cv;
 }
 
+// ajoute le titre (nom de la liste) en haut de l'image
+async function withTitle(core, title) {
+  try { await document.fonts.load('800 58px "Baloo 2"'); } catch { /* police système */ }
+  const TH = 104, cv = document.createElement('canvas');
+  cv.width = core.width; cv.height = core.height + TH;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#23262f'; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  let size = 58; ctx.font = '800 ' + size + 'px "Baloo 2", sans-serif';
+  while (ctx.measureText(title).width > cv.width - 64 && size > 28) { size -= 2; ctx.font = '800 ' + size + 'px "Baloo 2", sans-serif'; }
+  ctx.fillText(title, 32, 82);
+  ctx.drawImage(core, 0, TH);
+  return cv;
+}
+
 async function refreshShare() {
   const my = ++SH.busy, list = cur();
   const img = $('#shImg');
   $('#shState').textContent = 'Création de l’image…';
   $('#shState').hidden = false; img.hidden = true;
   ['shDl', 'shCopy', 'shShare'].forEach((id) => { $('#' + id).disabled = true; });
-  const cv = await (list.slots ? buildTopImage(list) : buildShareImage(list, !!db.shareNames));
+  const cv = await withTitle(await (list.slots ? buildTopImage(list) : buildShareImage(list, !!db.shareNames)), list.name);
   const blob = await new Promise((r) => cv.toBlob(r, 'image/png'));
   if (my !== SH.busy) return; // une demande plus récente a pris le relais
   SH.blob = blob;
