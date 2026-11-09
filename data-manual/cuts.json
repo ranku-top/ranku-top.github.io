@@ -1,8 +1,21 @@
 {
   "_doc": "Corrections manuelles des licences. Les animés sont désignés par leur clé : a<idAniList> (ou m<idMAL> s'ils n'ont pas d'idAniList). cuts : paires dont on coupe le lien. solo : animés sortis de tout groupe. join : paires qu'on force à fusionner.",
-  "cuts": [],
+  "cuts": [
+    [
+      "m42501",
+      "m22563"
+    ]
+  ],
   "solo": [
-    "a166381"
+    "a166381",
+    "a10519",
+    "a119873",
+    "a125514",
+    "a6513",
+    "a168973",
+    "a168962",
+    "a14349",
+    "a5466"
   ],
   "join": []
 }
