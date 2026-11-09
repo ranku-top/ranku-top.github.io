@@ -876,3 +876,8 @@ body[data-layout="a"] #board, body[data-layout="a"] #topView { padding-top: 0; }
 .sh-names input { width: 18px; height: 18px; accent-color: var(--accent); }
 
 #shNamesRow { padding-bottom: 4px; } #shNamesRow .sh-names { padding-bottom: 8px; }
+
+/* options de l'image de partage : pastilles du site, sous l'aperçu */
+#shNamesRow { display: flex; flex-wrap: wrap; gap: 8px; padding: 2px 18px 12px; }
+#shNamesRow .sh-opt { cursor: pointer; }
+#shNamesRow .sh-opt.on::before { content: '✓ '; }

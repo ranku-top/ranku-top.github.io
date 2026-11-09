@@ -998,7 +998,7 @@ const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${
 // Même rendu que la page : un bloc arrondi, trait coloré continu à gauche, lueur de chaque tier, lettre qui rayonne, légende dessous.
 // opts (aperçus et améliorations) : scale = résolution (2 = nette), cols = jaquettes par ligne, nameSize/outline = noms, tint = voile de couleur par tier, ring = liseré autour des jaquettes
 async function buildShareImage(list, withNames = false, opts = {}) {
-  const O = { scale: 1, cols: 10, nameSize: 13, outline: true, tint: false, ring: true, ...opts }; // par défaut : 10 par ligne, noms lisibles avec contour, liseré de couleur (le voile par tier est écarté)
+  const O = { title: null, scale: 1, cols: 10, nameSize: 13, outline: true, tint: false, ring: true, ...opts }; // par défaut : 10 par ligne, noms lisibles avec contour, liseré de couleur (le voile par tier est écarté)
   try { await Promise.all([document.fonts.load('800 60px "Baloo 2"'), document.fonts.load('600 14px Inter')]); } catch { /* polices système */ }
   const PAD = 24, LABEL = 170, PW = 100, PH = 142, GAP = 8, ROWPAD = 10, BAR = 12;
   const W = O.cols ? PAD * 2 + LABEL + 12 + O.cols * (PW + GAP) : 1200;
@@ -1007,8 +1007,13 @@ async function buildShareImage(list, withNames = false, opts = {}) {
   const CELL = PH;
   const rowH = (n) => Math.max(1, Math.ceil(n / perRow)) * (CELL + GAP) - GAP + ROWPAD * 2;
   const heights = sections.map((x) => rowH(x.keys.length));
-  const boxH = heights.reduce((s, h) => s + h, 0) + (sections.length - 1) * 2;
-  const H = PAD * 2 + boxH + 5;
+  const isTab = !!O.title && O.title.style === 'tab';
+  const subText = isTab && O.title.sub ? (list.type === 'char' ? 'TIER LIST · ' + Object.keys(list.items).length + ' PERSONNAGES' : 'TIER LIST · ' + Object.keys(list.items).length + ' ANIMÉS') : '';
+  const TABH = subText ? 104 : 74;
+  const HH = O.title && !isTab ? (O.title.style === 'pill' ? 44 : 108) : 0; // hauteur de l'en-tête (le bandeau « pill » déborde au-dessus du bloc)
+  const TOP = isTab ? TABH : (O.title && O.title.style === 'pill' ? 40 : 0);
+  const boxH = heights.reduce((s, h) => s + h, 0) + (sections.length - 1) * 2 + HH;
+  const H = PAD * 2 + boxH + 5 + TOP;
 
   const urls = new Map();
   sections.flatMap((x) => x.keys).forEach((k) => { if (!urls.has(k)) urls.set(k, imgUrl(list.items[k].i)); });
@@ -1020,13 +1025,90 @@ async function buildShareImage(list, withNames = false, opts = {}) {
   ctx.scale(O.scale, O.scale); // on dessine toujours en unités « logiques » : la résolution ne change que la netteté
   ctx.fillStyle = '#23262f'; ctx.fillRect(0, 0, W, H); // fond de la page
 
-  const x0 = PAD, y0 = PAD, w = W - PAD * 2;
-  rr(ctx, x0, y0 + 5, w, boxH, 16); ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fill(); // relief du bloc
+  const x0 = PAD, y0 = PAD + TOP, w = W - PAD * 2;
+  // onglet : largeur = largeur du titre ; forme unique (bloc + onglet) avec petits raccords arrondis, donc aucun trait entre l'onglet et le tier du haut
+  let tabL = 0, tabR = 0, tabSize = 0;
+  if (isTab) {
+    tabSize = O.title.size || 44; ctx.font = '800 ' + tabSize + 'px "Baloo 2", sans-serif';
+    while (ctx.measureText(O.title.text).width > w - 260 && tabSize > 24) { tabSize -= 2; ctx.font = '800 ' + tabSize + 'px "Baloo 2", sans-serif'; }
+    let tw = ctx.measureText(O.title.text).width;
+    if (subText) { ctx.font = '700 17px Inter, sans-serif'; if ('letterSpacing' in ctx) ctx.letterSpacing = '2px'; tw = Math.max(tw, ctx.measureText(subText).width); if ('letterSpacing' in ctx) ctx.letterSpacing = '0px'; }
+    tw += Math.round(tabSize * 1.5) + ({ slant: 44, slant2: 110, folder: 70, peak: 60, dome: 50, cut: 20 }[O.title.shape] || 0);
+    tabL = O.title.align === 'left' ? x0 + 40 : x0 + w / 2 - tw / 2; tabR = tabL + tw;
+  }
+  const boxPath = (dy = 0) => {
+    if (!isTab) { rr(ctx, x0, y0 + dy, w, boxH, 16); return; }
+    const R = 16, rt = 20, rj = 16, ty = y0 + dy, top = ty - TABH, xr = x0 + w, yb = ty + boxH;
+    ctx.beginPath();
+    ctx.moveTo(x0 + R, ty); ctx.lineTo(tabL - rj, ty);
+    ctx.quadraticCurveTo(tabL, ty, tabL, ty - rj);
+    const sh = O.title.shape, cxm = (tabL + tabR) / 2;
+    if (sh === 'slant' || sh === 'slant2') { // côtés inclinés (onglet de classeur)
+      const sl = sh === 'slant2' ? 64 : 30; ctx.lineTo(tabL + sl - 8, top + 4); ctx.arcTo(tabL + sl, top, tabL + sl + 12, top, 10);
+      ctx.lineTo(tabR - sl - 12, top); ctx.arcTo(tabR - sl, top, tabR - sl + 8, top + 4, 10); ctx.lineTo(tabR, ty - rj);
+    } else if (sh === 'invert') { // plus large en haut qu'en bas
+      const sl = 34; ctx.lineTo(tabL - sl + 8, top + 6); ctx.arcTo(tabL - sl, top, tabL - sl + 14, top, 10);
+      ctx.lineTo(tabR + sl - 14, top); ctx.arcTo(tabR + sl, top, tabR + sl - 8, top + 6, 10); ctx.lineTo(tabR, ty - rj);
+    } else if (sh === 'cut') { // coins coupés à 45°
+      const c = 26; ctx.lineTo(tabL, top + c); ctx.lineTo(tabL + c, top); ctx.lineTo(tabR - c, top); ctx.lineTo(tabR, top + c); ctx.lineTo(tabR, ty - rj);
+    } else if (sh === 'dome') { // demi-ellipse
+      const hh = 40; ctx.lineTo(tabL, top + hh); ctx.ellipse(cxm, top + hh, (tabR - tabL) / 2, hh, 0, Math.PI, 0); ctx.lineTo(tabR, ty - rj);
+    } else if (sh === 'folder') { // onglet de dossier : côtés en courbe douce
+      ctx.bezierCurveTo(tabL, ty - 40, tabL + 6, top, tabL + 46, top); ctx.lineTo(tabR - 46, top); ctx.bezierCurveTo(tabR - 6, top, tabR, ty - 40, tabR, ty - rj);
+    } else if (sh === 'peak') { // pointe vers le haut
+      ctx.lineTo(tabL, top + 36); ctx.lineTo(cxm, top); ctx.lineTo(tabR, top + 36); ctx.lineTo(tabR, ty - rj);
+    } else {
+      ctx.lineTo(tabL, top + rt); ctx.arcTo(tabL, top, tabL + rt, top, rt);
+      ctx.lineTo(tabR - rt, top); ctx.arcTo(tabR, top, tabR, top + rt, rt);
+    }
+    ctx.lineTo(tabR, ty - rj); ctx.quadraticCurveTo(tabR, ty, tabR + rj, ty);
+    ctx.lineTo(xr - R, ty); ctx.arcTo(xr, ty, xr, ty + R, R);
+    ctx.lineTo(xr, yb - R); ctx.arcTo(xr, yb, xr - R, yb, R);
+    ctx.lineTo(x0 + R, yb); ctx.arcTo(x0, yb, x0, yb - R, R);
+    ctx.lineTo(x0, ty + R); ctx.arcTo(x0, ty, x0 + R, ty, R);
+    ctx.closePath();
+  };
+  boxPath(5); ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fill(); // relief du bloc
   ctx.save();
-  rr(ctx, x0, y0, w, boxH, 16); ctx.clip();
-  ctx.fillStyle = '#1c1f27'; ctx.fillRect(x0, y0, w, boxH);
+  boxPath(0); ctx.clip();
+  ctx.fillStyle = '#1c1f27'; ctx.fillRect(x0, y0 - (isTab ? TABH : 0), w, boxH + (isTab ? TABH : 0));
+  if (isTab) {
+    const T = O.title, cxm = (tabL + tabR) / 2, tcols = list.tiers.map((t) => t.color);
+    const dyShape = { peak: 12, dome: 6 }[T.shape] || 0;
+    const ty = (subText ? y0 - TABH + 14 + tabSize * 0.82 : y0 - TABH / 2 + tabSize * 0.32) + dyShape;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.font = '800 ' + tabSize + 'px "Baloo 2", sans-serif';
+    const tw2 = ctx.measureText(T.text).width;
+    if (T.gradient) { const g = ctx.createLinearGradient(cxm - tw2 / 2, 0, cxm + tw2 / 2, 0); tcols.forEach((c, i) => g.addColorStop(tcols.length > 1 ? i / (tcols.length - 1) : 0, c)); ctx.fillStyle = g; } else ctx.fillStyle = '#fff';
+    ctx.fillText(T.text, cxm, ty);
+    if (subText) { ctx.font = '700 17px Inter, sans-serif'; if ('letterSpacing' in ctx) ctx.letterSpacing = '2px'; ctx.fillStyle = '#8f98b8'; ctx.fillText(subText, cxm, y0 - 16); if ('letterSpacing' in ctx) ctx.letterSpacing = '0px'; }
+    if (T.stripe) { const g = ctx.createLinearGradient(tabL, 0, tabR, 0); tcols.forEach((c, i) => g.addColorStop(tcols.length > 1 ? i / (tcols.length - 1) : 0, c)); ctx.fillStyle = g; ctx.fillRect(tabL, y0 - TABH, tabR - tabL, 7); }
+  }
 
-  let y = y0;
+  if (O.title && !isTab) { // en-tête intégré au bloc
+    const T = O.title, cxm = x0 + w / 2, tcols = list.tiers.map((t) => t.color);
+    const grad = (xa, xb) => { const g = ctx.createLinearGradient(xa, 0, xb, 0); tcols.forEach((c, i) => g.addColorStop(tcols.length > 1 ? i / (tcols.length - 1) : 0, c)); return g; };
+    const fit = (size) => { ctx.font = '800 ' + size + 'px "Baloo 2", sans-serif'; return ctx.measureText(T.text).width; };
+    let size = T.style === 'pill' ? 40 : 58; while (fit(size) > w - 180 && size > 26) size -= 2;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    if (T.style === 'band') { // bandeau : le dégradé des tiers en fond, titre centré
+      ctx.globalAlpha = .38; ctx.fillStyle = grad(x0, x0 + w); ctx.fillRect(x0, y0, w, HH); ctx.globalAlpha = 1;
+      const sh = ctx.createLinearGradient(0, y0, 0, y0 + HH); sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,.35)'); ctx.fillStyle = sh; ctx.fillRect(x0, y0, w, HH);
+      ctx.font = '800 ' + size + 'px "Baloo 2", sans-serif'; ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowOffsetY = 3; ctx.shadowBlur = 6; ctx.fillStyle = '#fff'; ctx.fillText(T.text, cxm, y0 + HH / 2 + size * 0.33); ctx.restore();
+    } else if (T.style === 'lines') { // « —— Titre —— » : deux traits dégradés de chaque côté
+      ctx.font = '800 ' + size + 'px "Baloo 2", sans-serif'; const tw = ctx.measureText(T.text).width, ty = y0 + HH / 2 + size * 0.33;
+      ctx.fillStyle = '#fff'; ctx.fillText(T.text, cxm, ty);
+      const my = y0 + HH / 2, gap = 26, len = Math.min(240, (w - tw) / 2 - gap - 40);
+      ctx.fillStyle = grad(cxm - tw / 2 - gap - len, cxm - tw / 2 - gap); ctx.fillRect(cxm - tw / 2 - gap - len, my - 2, len, 4);
+      ctx.fillStyle = grad(cxm + tw / 2 + gap, cxm + tw / 2 + gap + len); ctx.fillRect(cxm + tw / 2 + gap, my - 2, len, 4);
+    } else if (T.style === 'pill') { // pastille centrée à cheval sur le bord haut du bloc (dessinée après le bloc)
+      /* voir plus bas */
+    } else { // 'center' : titre centré, petit trait dégradé dessous
+      ctx.font = '800 ' + size + 'px "Baloo 2", sans-serif'; ctx.fillStyle = '#fff'; ctx.fillText(T.text, cxm, y0 + HH / 2 + size * 0.28);
+      const lw = Math.min(w * 0.35, 360); ctx.fillStyle = grad(cxm - lw / 2, cxm + lw / 2); rr(ctx, cxm - lw / 2, y0 + HH - 24, lw, 5, 2.5); ctx.fill();
+    }
+    if (T.style !== 'pill') { ctx.fillStyle = '#0f1117'; ctx.fillRect(x0, y0 + HH - 2, w, 2); }
+  }
+  let y = y0 + HH;
   const centers = [];
   sections.forEach(({ tier, keys }, idx) => {
     const h = heights[idx];
@@ -1079,26 +1161,20 @@ async function buildShareImage(list, withNames = false, opts = {}) {
   });
 
   // trait coloré continu sur le bord gauche : un seul dégradé qui traverse tous les tiers
-  const bar = ctx.createLinearGradient(0, y0, 0, y0 + boxH);
-  sections.forEach(({ tier }, i) => bar.addColorStop(Math.min(1, (centers[i] - y0) / boxH), tier.color));
-  ctx.fillStyle = bar; ctx.fillRect(x0, y0, BAR, boxH);
+  const bar = ctx.createLinearGradient(0, y0 + HH, 0, y0 + boxH);
+  sections.forEach(({ tier }, i) => bar.addColorStop(Math.min(1, (centers[i] - y0 - HH) / (boxH - HH)), tier.color));
+  ctx.fillStyle = bar; ctx.fillRect(x0, y0 + HH, BAR, boxH - HH);
   ctx.restore();
-  rr(ctx, x0, y0, w, boxH, 16); ctx.lineWidth = 2; ctx.strokeStyle = '#12141b'; ctx.stroke();
-  return cv;
-}
-
-// ajoute le titre (nom de la liste) en haut de l'image
-async function withTitle(core, title) {
-  try { await document.fonts.load('800 58px "Baloo 2"'); } catch { /* police système */ }
-  const TH = 104, cv = document.createElement('canvas');
-  cv.width = core.width; cv.height = core.height + TH;
-  const ctx = cv.getContext('2d');
-  ctx.fillStyle = '#23262f'; ctx.fillRect(0, 0, cv.width, cv.height);
-  ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-  let size = 58; ctx.font = '800 ' + size + 'px "Baloo 2", sans-serif';
-  while (ctx.measureText(title).width > cv.width - 64 && size > 28) { size -= 2; ctx.font = '800 ' + size + 'px "Baloo 2", sans-serif'; }
-  ctx.fillText(title, 32, 82);
-  ctx.drawImage(core, 0, TH);
+  boxPath(0); ctx.lineWidth = 2; ctx.strokeStyle = '#12141b'; ctx.stroke();
+  if (O.title && O.title.style === 'pill') { // pastille bleue centrée sur le bord haut, dans le style du post-it « Non classé »
+    const T = O.title; let size = 40; ctx.font = '800 ' + size + 'px "Baloo 2", sans-serif';
+    while (ctx.measureText(T.text).width > w - 200 && size > 24) { size -= 2; ctx.font = '800 ' + size + 'px "Baloo 2", sans-serif'; }
+    const tw = ctx.measureText(T.text).width, pw = tw + 80, ph = 66, px2 = x0 + w / 2 - pw / 2, py2 = y0 - ph / 2;
+    rr(ctx, px2, py2 + 5, pw, ph, ph / 2); ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fill();
+    rr(ctx, px2, py2, pw, ph, ph / 2); const pg = ctx.createLinearGradient(0, py2, 0, py2 + ph); pg.addColorStop(0, '#6aa0ff'); pg.addColorStop(1, '#3f78e6'); ctx.fillStyle = pg; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = '#12141b'; ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText(T.text, x0 + w / 2, py2 + ph / 2 + size * 0.3);
+  }
   return cv;
 }
 
@@ -1108,7 +1184,8 @@ async function refreshShare() {
   $('#shState').textContent = 'Création de l’image…';
   $('#shState').hidden = false; img.hidden = true;
   ['shDl', 'shCopy', 'shShare'].forEach((id) => { $('#' + id).disabled = true; });
-  const cv = await withTitle(await (list.slots ? buildTopImage(list) : buildShareImage(list, !!db.shareNames, { ring: !!db.shareRing, tint: db.shareTint ? 1 : false })), list.name);
+  const title = { text: list.name, style: 'tab', shape: 'slant', size: 44 }; // titre dans un onglet incliné incrusté
+  const cv = await (list.slots ? buildTopImage(list, { title }) : buildShareImage(list, !!db.shareNames, { ring: !!db.shareRing, tint: db.shareTint ? 1 : false, title }));
   const blob = await new Promise((r) => cv.toBlob(r, 'image/png'));
   if (my !== SH.busy) return; // une demande plus récente a pris le relais
   SH.blob = blob;
@@ -1119,13 +1196,15 @@ async function refreshShare() {
   ['shDl', 'shCopy', 'shShare'].forEach((id) => { $('#' + id).disabled = false; });
 }
 
-$('#shNames').addEventListener('change', (e) => { db.shareNames = e.target.checked; save(); refreshShare(); });
-$('#shRing').addEventListener('change', (e) => { db.shareRing = e.target.checked; save(); refreshShare(); });
-$('#shTint').addEventListener('change', (e) => { db.shareTint = e.target.checked; save(); refreshShare(); });
+const SH_OPTS = { shNames: 'shareNames', shRing: 'shareRing', shTint: 'shareTint' };
+const syncShareOpts = () => { for (const [id, key] of Object.entries(SH_OPTS)) { $('#' + id).classList.toggle('on', !!db[key]); $('#' + id).setAttribute('aria-pressed', String(!!db[key])); } };
+$('#shNamesRow').addEventListener('click', (e) => {
+  const b = e.target.closest('.sh-opt');
+  if (!b) return;
+  db[SH_OPTS[b.id]] = !db[SH_OPTS[b.id]]; save(); syncShareOpts(); refreshShare();
+});
 function openShare() {
-  $('#shNames').checked = !!db.shareNames;
-  $('#shRing').checked = !!db.shareRing; // tout est décoché au départ : c'est à l'utilisateur de choisir
-  $('#shTint').checked = !!db.shareTint;
+  syncShareOpts(); // tout est désactivé au départ : c'est à l'utilisateur de choisir
   $('#shNamesRow').hidden = !!cur().slots; // ces options ne concernent que les tier lists (un top affiche déjà les titres)
   if (cur().slots && !cur().slots.some(Boolean)) { toast('Ajoute d’abord quelques éléments à ton top'); return; }
   const file = new File([new Blob()], 'x.png', { type: 'image/png' });
@@ -2106,20 +2185,42 @@ $('#topDel').onclick = () => {
 };
 
 // ----- image du top : la liste numérotée, comme à l'écran
-async function buildTopImage(top) {
+// bloc + onglet incliné centré sur le bord haut, d'une seule forme (aucun trait entre l'onglet et le contenu)
+function tabSlantPath(ctx, x0, ty, w, boxH, R, tabL, tabR, TABH) {
+  const rj = 16, sl = 30, top = ty - TABH, xr = x0 + w, yb = ty + boxH;
+  ctx.beginPath();
+  ctx.moveTo(x0 + R, ty); ctx.lineTo(tabL - rj, ty); ctx.quadraticCurveTo(tabL, ty, tabL, ty - rj);
+  ctx.lineTo(tabL + sl - 8, top + 4); ctx.arcTo(tabL + sl, top, tabL + sl + 12, top, 10);
+  ctx.lineTo(tabR - sl - 12, top); ctx.arcTo(tabR - sl, top, tabR - sl + 8, top + 4, 10); ctx.lineTo(tabR, ty - rj);
+  ctx.quadraticCurveTo(tabR, ty, tabR + rj, ty); ctx.lineTo(xr - R, ty); ctx.arcTo(xr, ty, xr, ty + R, R);
+  ctx.lineTo(xr, yb - R); ctx.arcTo(xr, yb, xr - R, yb, R); ctx.lineTo(x0 + R, yb); ctx.arcTo(x0, yb, x0, yb - R, R);
+  ctx.lineTo(x0, ty + R); ctx.arcTo(x0, ty, x0 + R, ty, R); ctx.closePath();
+}
+
+async function buildTopImage(top, opts = {}) {
   try { await Promise.all([document.fonts.load('800 60px "Baloo 2"'), document.fonts.load('800 30px Inter'), document.fonts.load('600 20px Inter')]); } catch { /* polices système */ }
   const W = 900, PAD = 24, IN = 22, RH = 120, GAP = 12, NW = 96, PW = 78, PH = 108;
   const keys = top.slots.filter((k) => k && top.items[k]);
   const boxH = IN * 2 + keys.length * RH + (keys.length - 1) * GAP;
-  const H = PAD * 2 + boxH + 5;
+  const T = opts.title, TABH = T ? 74 : 0;
+  const H = PAD * 2 + boxH + 5 + TABH;
   const imgs = new Map(await Promise.all(keys.map(async (k) => [k, await loadImage(imgUrl(top.items[k].i))])));
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
   ctx.fillStyle = '#23262f'; ctx.fillRect(0, 0, W, H);
-  const x0 = PAD, y0 = PAD, w = W - PAD * 2;
-  rr(ctx, x0, y0 + 5, w, boxH, 18); ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fill();
-  rr(ctx, x0, y0, w, boxH, 18); ctx.fillStyle = '#1c1f27'; ctx.fill();
+  const x0 = PAD, y0 = PAD + TABH, w = W - PAD * 2;
+  let tabL = 0, tabR = 0, tabSize = 44;
+  if (T) {
+    ctx.font = '800 ' + tabSize + 'px "Baloo 2", sans-serif';
+    while (ctx.measureText(T.text).width > w - 260 && tabSize > 24) { tabSize -= 2; ctx.font = '800 ' + tabSize + 'px "Baloo 2", sans-serif'; }
+    const tw = ctx.measureText(T.text).width + Math.round(tabSize * 1.5) + 44;
+    tabL = W / 2 - tw / 2; tabR = tabL + tw;
+  }
+  const bp = (dy = 0) => { if (T) tabSlantPath(ctx, x0, y0 + dy, w, boxH, 18, tabL, tabR, TABH); else rr(ctx, x0, y0 + dy, w, boxH, 18); };
+  bp(5); ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fill();
+  bp(0); ctx.fillStyle = '#1c1f27'; ctx.fill();
+  if (T) { ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.font = '800 ' + tabSize + 'px "Baloo 2", sans-serif'; ctx.fillText(T.text, W / 2, y0 - TABH / 2 + tabSize * 0.32); }
   const COL = ['#ffd24d', '#cfd6e4', '#e0a070'];
   const fit = (t, max, font) => { ctx.font = font; if (ctx.measureText(t).width <= max) return t; while (t.length > 1 && ctx.measureText(t + '…').width > max) t = t.slice(0, -1); return t + '…'; };
   keys.forEach((k, i) => {
@@ -2147,7 +2248,7 @@ async function buildTopImage(top) {
     ctx.font = f; ctx.fillText(fit(it.t, tw, f), tx, y + (sub ? 58 : 70));
     if (sub) { const f2 = '600 20px Inter, sans-serif'; ctx.fillStyle = '#b4bbd6'; ctx.font = f2; ctx.fillText(fit(sub, tw, f2), tx, y + 90); }
   });
-  rr(ctx, x0, y0, w, boxH, 18); ctx.lineWidth = 2; ctx.strokeStyle = '#12141b'; ctx.stroke();
+  bp(0); ctx.lineWidth = 2; ctx.strokeStyle = '#12141b'; ctx.stroke();
   return cv;
 }
 
