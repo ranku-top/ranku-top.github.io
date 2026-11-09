@@ -1001,7 +1001,7 @@ async function buildShareImage(list, withNames = false) {
   const W = 1200, PAD = 24, LABEL = 170, PW = 100, PH = 142, GAP = 8, ROWPAD = 10, BAR = 12;
   const perRow = Math.floor((W - PAD * 2 - LABEL - 12) / (PW + GAP));
   const sections = list.tiers.map((t) => ({ tier: t, keys: t.items.filter((k) => list.items[k]) }));
-  const NAMEH = withNames ? 36 : 0, CELL = PH + NAMEH; // zone sous l'affiche pour le nom (2 lignes)
+  const CELL = PH;
   const rowH = (n) => Math.max(1, Math.ceil(n / perRow)) * (CELL + GAP) - GAP + ROWPAD * 2;
   const heights = sections.map((x) => rowH(x.keys.length));
   const boxH = heights.reduce((s, h) => s + h, 0) + (sections.length - 1) * 2;
@@ -1043,17 +1043,29 @@ async function buildShareImage(list, withNames = false) {
     keys.forEach((k, i) => {
       const px = x0 + LABEL + 6 + (i % perRow) * (PW + GAP), py = y + ROWPAD + Math.floor(i / perRow) * (CELL + GAP);
       drawPoster(ctx, imgs.get(k), list.items[k].t, px, py, PW, PH);
-      if (withNames) { // nom sous l'affiche, sur deux lignes au maximum
-        ctx.font = '700 12px Inter, sans-serif'; ctx.fillStyle = '#c9cde0'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-        const maxW = PW + GAP - 2, lines = []; let line = '';
-        for (const wd of list.items[k].t.split(' ')) {
+      if (withNames) { // comme au survol sur la page : titre en bas à gauche sur un dégradé sombre, pastille ×N en bas à droite
+        const it = list.items[k], n = it.m && it.m.length > 1 ? it.m.length : 0;
+        ctx.save(); rr(ctx, px, py, PW, PH, 12); ctx.clip();
+        const gh = 64, g = ctx.createLinearGradient(0, py + PH - gh, 0, py + PH);
+        g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.88)');
+        ctx.fillStyle = g; ctx.fillRect(px, py + PH - gh, PW, gh);
+        ctx.restore();
+        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.font = '700 12px Inter, sans-serif'; ctx.fillStyle = '#fff';
+        const maxW = PW - 14 - (n ? 30 : 0), lines = []; let line = '';
+        for (const wd of it.t.split(' ')) {
           const t = line ? line + ' ' + wd : wd;
           if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = wd; } else line = t;
         }
         lines.push(line);
-        const shown = lines.slice(0, 2);
-        if (lines.length > 2) { let l2 = shown[1]; while (l2.length > 1 && ctx.measureText(l2 + '…').width > maxW) l2 = l2.slice(0, -1); shown[1] = l2 + '…'; }
-        shown.forEach((t, n) => { let tt = t; while (tt.length > 1 && ctx.measureText(tt).width > maxW) tt = tt.slice(0, -1); ctx.fillText(tt, px + PW / 2, py + PH + 16 + n * 14); });
+        const shown = lines.slice(0, 3);
+        if (lines.length > 3) { let l3 = shown[2]; while (l3.length > 1 && ctx.measureText(l3 + '…').width > maxW) l3 = l3.slice(0, -1); shown[2] = l3 + '…'; }
+        shown.forEach((t, i2) => { let tt = t; while (tt.length > 1 && ctx.measureText(tt).width > maxW) tt = tt.slice(0, -1); ctx.fillText(tt, px + 7, py + PH - 8 - (shown.length - 1 - i2) * 14); });
+        if (n) { // pastille ×N
+          const label = '×' + n; ctx.font = '800 11px Inter, sans-serif';
+          const tw = ctx.measureText(label).width, bw = tw + 14, bh = 17, bx = px + PW - bw - 5, by = py + PH - bh - 5;
+          rr(ctx, bx, by, bw, bh, bh / 2); ctx.fillStyle = 'rgba(10,14,28,.8)'; ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.stroke();
+          ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(label, bx + bw / 2, by + 12.5);
+        }
       }
     });
     centers.push(y + h / 2);
