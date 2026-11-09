@@ -1031,7 +1031,7 @@ async function buildShareImage(list, withNames = false, opts = {}) {
   sections.forEach(({ tier, keys }, idx) => {
     const h = heights[idx];
     if (idx) { ctx.fillStyle = '#0f1117'; ctx.fillRect(x0, y - 2, w, 2); } // trait sombre entre deux tiers
-    if (O.tint) { const tg = ctx.createLinearGradient(x0 + BAR, 0, x0 + w, 0); tg.addColorStop(0, hexA(tier.color, .16)); tg.addColorStop(.5, hexA(tier.color, .07)); tg.addColorStop(1, hexA(tier.color, .03)); ctx.fillStyle = tg; ctx.fillRect(x0 + BAR, y, w - BAR, h); } // voile léger de la couleur du tier
+    if (O.tint) { const tg = ctx.createLinearGradient(x0 + BAR, 0, x0 + w, 0); const K = O.tint === true ? 1 : O.tint; tg.addColorStop(0, hexA(tier.color, Math.min(.5, .16 * K))); tg.addColorStop(.5, hexA(tier.color, Math.min(.4, .07 * K))); tg.addColorStop(1, hexA(tier.color, Math.min(.3, .03 * K))); ctx.fillStyle = tg; ctx.fillRect(x0 + BAR, y, w - BAR, h); } // voile léger de la couleur du tier
 
     // lettre : couleur du tier à plat, comme sur la page
     const long = tier.name.length > 3, size = long ? 34 : 64;

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Image de partage : essai du voile par tier</title>
+<style>
+* { box-sizing: border-box; margin: 0; }
+body { background: #0f1015; color: #e8eaf4; font: 500 14px system-ui, sans-serif; padding: 18px 16px 60px; }
+h1 { font: 800 24px system-ui; } .sub { color: #8f98b8; margin: 6px 0 16px; max-width: 760px; line-height: 1.5; }
+select { padding: 8px 12px; border-radius: 8px; background: #262a36; color: #fff; border: 2px solid #000; font: inherit; margin-bottom: 16px; }
+.row { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+.c { flex: 1 1 380px; max-width: 620px; } .c h2 { font: 800 16px system-ui; margin-bottom: 2px; } .c p { color: #8f98b8; font-size: 12px; margin-bottom: 8px; }
+.c img { width: 100%; display: block; border: 2px solid #000; border-radius: 8px; }
+#st { color: #ffd24d; margin: 8px 0; }
+</style></head><body>
+<h1>Essai du voile de couleur par tier</h1>
+<div class="sub">Cette page lit TA liste (sans rien modifier) et la dessine trois fois : sans voile, avec le voile léger, et avec un voile plus marqué. Ouvre-la sur le vrai site pour voir tes propres tiers.</div>
+<select id="sel"></select><div id="st">Chargement…</div>
+<div class="row" id="row"></div>
+<iframe id="f" src="../index.html" style="display:none"></iframe>
+<script>
+const f = document.getElementById('f'), st = document.getElementById('st'), sel = document.getElementById('sel'), row = document.getElementById('row');
+const VAR = [['Sans voile (comme maintenant)', 'Rendu actuel.', false], ['D · Voile léger', 'Teinte douce de la couleur de chaque tier.', 1], ['D · Voile plus marqué', 'Même idée, environ 1,7 fois plus soutenue.', 1.7]];
+let w;
+async function draw() {
+  st.textContent = 'Rendu en cours…'; row.replaceChildren();
+  const list = w.eval('db.lists')[Number(sel.value)];
+  const names = w.eval('!!db.shareNames');
+  for (const [t, d, tint] of VAR) {
+    const core = await w.buildShareImage(list, names, tint ? { tint } : {});
+    const cv = await w.withTitle(core, list.name);
+    const c = document.createElement('div'); c.className = 'c';
+    c.innerHTML = '<h2>' + t + '</h2><p>' + d + ' · ' + cv.width + ' × ' + cv.height + ' px</p><img src="' + cv.toDataURL() + '">';
+    row.append(c);
+  }
+  st.textContent = '';
+}
+f.addEventListener('load', async () => {
+  try {
+    w = f.contentWindow; await new Promise((r) => setTimeout(r, 1500));
+    const lists = w.eval('db.lists.map((l) => [l.name, Object.keys(l.items).length])');
+    sel.innerHTML = lists.map(([n, c], i) => '<option value="' + i + '">' + n.replace(/</g, '&lt;') + ' (' + c + ' cartes)</option>').join('');
+    sel.onchange = draw;
+    const cur = w.eval('db.lists.findIndex((l) => l.id === db.cur)'); sel.value = String(Math.max(0, cur));
+    await draw();
+  } catch (e) { st.textContent = 'ERREUR : ' + e.message; }
+});
+</script></body></html>
