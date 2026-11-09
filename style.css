@@ -871,3 +871,6 @@ body[data-layout="a"] #board, body[data-layout="a"] #topView { padding-top: 0; }
 
 .ct-btn.ct-del { background: #5a1f27; color: #ffd9de; border-color: #2d0d12; box-shadow: 0 3px 0 #2d0d12; }
 .ct-btn.ct-del.armed { background: #c0392b; color: #fff; }
+
+.sh-names { display: flex; align-items: center; gap: 10px; padding: 2px 18px 12px; color: #c9cde0; font: 700 14px 'Inter', sans-serif; cursor: pointer; }
+.sh-names input { width: 18px; height: 18px; accent-color: var(--accent); }

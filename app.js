@@ -996,12 +996,13 @@ function drawPoster(ctx, im, title, x, y, w, h) {
 const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
 
 // Même rendu que la page : un bloc arrondi, trait coloré continu à gauche, lueur de chaque tier, lettre qui rayonne, légende dessous.
-async function buildShareImage(list) {
+async function buildShareImage(list, withNames = false) {
   try { await Promise.all([document.fonts.load('800 60px "Baloo 2"'), document.fonts.load('600 14px Inter')]); } catch { /* polices système */ }
   const W = 1200, PAD = 24, LABEL = 170, PW = 100, PH = 142, GAP = 8, ROWPAD = 10, BAR = 12;
   const perRow = Math.floor((W - PAD * 2 - LABEL - 12) / (PW + GAP));
   const sections = list.tiers.map((t) => ({ tier: t, keys: t.items.filter((k) => list.items[k]) }));
-  const rowH = (n) => Math.max(1, Math.ceil(n / perRow)) * (PH + GAP) - GAP + ROWPAD * 2;
+  const NAMEH = withNames ? 36 : 0, CELL = PH + NAMEH; // zone sous l'affiche pour le nom (2 lignes)
+  const rowH = (n) => Math.max(1, Math.ceil(n / perRow)) * (CELL + GAP) - GAP + ROWPAD * 2;
   const heights = sections.map((x) => rowH(x.keys.length));
   const boxH = heights.reduce((s, h) => s + h, 0) + (sections.length - 1) * 2;
   const H = PAD * 2 + boxH + 5;
@@ -1040,8 +1041,20 @@ async function buildShareImage(list) {
       ctx.fillText(line, cx, ly);
     }
     keys.forEach((k, i) => {
-      const px = x0 + LABEL + 6 + (i % perRow) * (PW + GAP), py = y + ROWPAD + Math.floor(i / perRow) * (PH + GAP);
+      const px = x0 + LABEL + 6 + (i % perRow) * (PW + GAP), py = y + ROWPAD + Math.floor(i / perRow) * (CELL + GAP);
       drawPoster(ctx, imgs.get(k), list.items[k].t, px, py, PW, PH);
+      if (withNames) { // nom sous l'affiche, sur deux lignes au maximum
+        ctx.font = '700 12px Inter, sans-serif'; ctx.fillStyle = '#c9cde0'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+        const maxW = PW + GAP - 2, lines = []; let line = '';
+        for (const wd of list.items[k].t.split(' ')) {
+          const t = line ? line + ' ' + wd : wd;
+          if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = wd; } else line = t;
+        }
+        lines.push(line);
+        const shown = lines.slice(0, 2);
+        if (lines.length > 2) { let l2 = shown[1]; while (l2.length > 1 && ctx.measureText(l2 + '…').width > maxW) l2 = l2.slice(0, -1); shown[1] = l2 + '…'; }
+        shown.forEach((t, n) => { let tt = t; while (tt.length > 1 && ctx.measureText(tt).width > maxW) tt = tt.slice(0, -1); ctx.fillText(tt, px + PW / 2, py + PH + 16 + n * 14); });
+      }
     });
     centers.push(y + h / 2);
     y += h + 2;
@@ -1062,7 +1075,7 @@ async function refreshShare() {
   $('#shState').textContent = 'Création de l’image…';
   $('#shState').hidden = false; img.hidden = true;
   ['shDl', 'shCopy', 'shShare'].forEach((id) => { $('#' + id).disabled = true; });
-  const cv = await (list.slots ? buildTopImage(list) : buildShareImage(list));
+  const cv = await (list.slots ? buildTopImage(list) : buildShareImage(list, !!db.shareNames));
   const blob = await new Promise((r) => cv.toBlob(r, 'image/png'));
   if (my !== SH.busy) return; // une demande plus récente a pris le relais
   SH.blob = blob;
@@ -1073,7 +1086,10 @@ async function refreshShare() {
   ['shDl', 'shCopy', 'shShare'].forEach((id) => { $('#' + id).disabled = false; });
 }
 
+$('#shNames').addEventListener('change', (e) => { db.shareNames = e.target.checked; save(); refreshShare(); });
 function openShare() {
+  $('#shNames').checked = !!db.shareNames;
+  $('#shNamesRow').hidden = !!cur().slots; // un top affiche déjà les titres
   if (cur().slots && !cur().slots.some(Boolean)) { toast('Ajoute d’abord quelques éléments à ton top'); return; }
   const file = new File([new Blob()], 'x.png', { type: 'image/png' });
   $('#shShare').hidden = !(navigator.canShare && navigator.canShare({ files: [file] }));
