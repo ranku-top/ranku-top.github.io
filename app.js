@@ -869,6 +869,7 @@ function renderFiche() {
   $('#fiImg').src = imgUrl(it.i);
   $('#fiTitle').textContent = it.t;
   $('#fiReset').hidden = it.i0 === undefined;
+  $('#fiNameRow').hidden = true;
   $('#fiDel').textContent = list.slots ? 'Retirer du top' : 'Retirer de ma liste';
   const box = $('#fiList');
   const gid = it.m ? gidOf(it.m[0]) : gidOf(ficheKey);
@@ -1016,6 +1017,7 @@ function shortTitle(t) {
 
 // nom court d'une carte : celui calculé à la construction de la base (rows[i][9]), sinon un raccourci simple du titre
 function cardShortName(key, it) {
+  if (it && it.n) return it.n; // nom choisi par l'utilisateur (fiche > Renommer)
   const r = typeof rowOfKey === 'function' ? rowOfKey(key[0] === 'g' ? key.slice(1) : key) : null;
   return (r && r[9]) || shortTitle(it.t);
 }
@@ -1860,6 +1862,21 @@ $('#fiUrlOk').onclick = async () => {
   $('#fiUrl').value = ''; $('#fiLink').hidden = true;
   toast('Image changée');
 };
+$('#fiRename').onclick = () => {
+  const it = cur().items[ficheKey]; if (!it) return;
+  const row = $('#fiNameRow'); row.hidden = !row.hidden;
+  if (!row.hidden) { const inp = $('#fiNameIn'); const auto = it.n ? '' : cardShortName(ficheKey, { ...it, n: '' }); inp.value = it.n || auto; inp.focus(); inp.select(); }
+};
+function applyRename() {
+  const it = cur().items[ficheKey]; if (!it) return;
+  const v = $('#fiNameIn').value.trim().replace(/s+/g, ' ');
+  const auto = cardShortName(ficheKey, { ...it, n: '' });
+  if (!v || v === auto) delete it.n; else it.n = v;
+  save(); render(); renderFiche();
+  toast(it.n ? 'Nom changé' : 'Nom d’origine remis');
+}
+$('#fiNameOk').onclick = applyRename;
+$('#fiNameIn').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); applyRename(); } });
 $('#fiReset').onclick = () => {
   const it = cur().items[ficheKey];
   if (!it || it.i0 === undefined) return;

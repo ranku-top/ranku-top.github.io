@@ -72,12 +72,14 @@
       <button class="ghost sm" id="fiPick" type="button">Changer l’image…</button>
       <button class="ghost sm" id="fiLinkBtn" type="button">Lien d’une image…</button>
       <button class="ghost sm" id="fiReset" type="button" hidden>Image d’origine</button>
+      <button class="ghost sm" id="fiRename" type="button">Renommer…</button>
       <input type="file" id="fiFile" accept="image/*" hidden>
     </div>
     </div>
     <button class="sw-x" id="fiClose" type="button" aria-label="Fermer">✕</button>
   </div>
   <div class="fi-link" id="fiLink" hidden><input id="fiUrl" placeholder="https://… adresse d’une image" autocomplete="off"><button class="primary sm" id="fiUrlOk" type="button">Utiliser</button></div>
+  <div class="fi-link" id="fiNameRow" hidden><input id="fiNameIn" maxlength="40" placeholder="Nom affiché sur la jaquette" autocomplete="off"><button class="primary sm" id="fiNameOk" type="button">OK</button></div>
   <div class="fi-list" id="fiList"></div>
   <div class="fi-foot">
     <button class="danger" id="fiDel" type="button">Retirer de ma liste</button>
