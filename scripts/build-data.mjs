@@ -142,6 +142,8 @@ outRows.forEach((r, i) => {
   const g = r[8] || 'i' + i;
   for (const n of [r[0], ...r[6].slice(0, 6)]) { const k = normS(n).split(' '); for (let L = 1; L <= Math.min(3, k.length); L++) { const p = k.slice(0, L).join(' '); const key = p + '|' + g; if (seenStart.has(key)) continue; seenStart.add(key); startIdx.set(p, (startIdx.get(p) || 0) + 1); } }
 });
+const gramCount = new Map();
+outRows.forEach((r) => { const w = normS(r[0]).split(' '); const seen = new Set(); for (let n = 2; n <= 5; n++) for (let i = 0; i + n <= w.length; i++) { const g = w.slice(i, i + n).join(' '); if (!seen.has(g)) { seen.add(g); gramCount.set(g, (gramCount.get(g) || 0) + 1); } } });
 const asciiName = (x) => /^[A-Za-z][A-Za-z0-9 ':.!-]*$/.test(x);
 function shortNameOf(i) {
   const r = outRows[i], g = r[8] ? outGroups[r[8]] : [i];
@@ -158,6 +160,16 @@ function shortNameOf(i) {
     if (normS(out) !== k || (L < 2 && !beforeColon && !/[:.\-]/.test(out))) continue; // un seul mot sans ponctuation : trop risqué (« Shingeki », « Tanaka »)
     return out;
   }
+  // règle 1b : un nom de la licence qui se trouve DANS le titre (« Bunny Girl Senpai » dans « Seishun Buta Yarou wa Bunny Girl Senpai no Yume wo Minai »)
+  let inner = null;
+  for (const [k, orig] of names) {
+    const wc = k.split(' ').length;
+    if (wc < 2 || wc > 5 || k.length < 9 || !asciiName(orig) || !/^[A-Z]/.test(orig)) continue;
+    if (!(' ' + nt + ' ').includes(' ' + k + ' ') || nt.startsWith(k + ' ') || nt === k) continue; // début déjà traité plus haut
+    if (k.length > nt.length - 8 || (gramCount.get(k) || 0) > 4 || /season|part|movie|special|ova/.test(k)) continue;
+    if (!inner || k.length < inner.k.length) inner = { k, orig };
+  }
+  if (inner) return inner.orig;
   let best = null;
   for (const [k, orig] of names) {
     if (k.length < 5 || k.length > 22 || !asciiName(orig) || !/^[A-Z]/.test(orig)) continue;
