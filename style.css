@@ -881,3 +881,12 @@ body[data-layout="a"] #board, body[data-layout="a"] #topView { padding-top: 0; }
 #shNamesRow { display: flex; flex-wrap: wrap; gap: 8px; padding: 2px 18px 12px; }
 #shNamesRow .sh-opt { cursor: pointer; }
 #shNamesRow .sh-opt.on::before { content: '✓ '; }
+
+/* ===== Tiers en blocs de couleur pleins (comme TierMaker) : le nom du tier est sur un rectangle de sa couleur ===== */
+.tiers::before { display: none; }
+.tier-label { background: var(--c1); padding: 6px 34px 6px 10px; }
+.tier-label b { background: none; color: var(--ink); text-shadow: none; filter: none; }
+.tier-label small { color: var(--ink); opacity: .78; font-weight: 700; }
+.mv button { background: rgba(0,0,0,.2); color: var(--ink); }
+.mv button:not(:disabled):hover { background: rgba(0,0,0,.38); }
+.tier + .tier::before { left: 0; right: 0; }

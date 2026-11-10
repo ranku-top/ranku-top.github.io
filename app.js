@@ -196,7 +196,7 @@ function render() {
     h('button', { class: 'tb-btn tb-share', type: 'button' }, svgEl(SHARE_ICON), 'Partager'),
   ]));
   board.append(h('div', { class: 'tiers', style: `--bar:${bar}` }, list.tiers.map((t, i) =>
-    h('div', { class: 'tier' + (t.id === freshTier ? ' pop' : ''), dataset: { id: t.id }, style: `--i:${i};--c1:${t.color};--c2:${shade(t.color, -0.2)}` },
+    h('div', { class: 'tier' + (t.id === freshTier ? ' pop' : ''), dataset: { id: t.id }, style: `--i:${i};--c1:${t.color};--c2:${shade(t.color, -0.2)};--ink:${textOn(t.color)}` },
       h('div', { class: 'mv' },
         h('button', { dataset: { mv: '-1', tier: t.id }, 'aria-label': 'Monter ce tier', type: 'button', ...(i === 0 ? { disabled: '' } : {}) }, '▲'),
         h('button', { dataset: { mv: '1', tier: t.id }, 'aria-label': 'Descendre ce tier', type: 'button', ...(i === list.tiers.length - 1 ? { disabled: '' } : {}) }, '▼')),
@@ -286,7 +286,7 @@ let editTier = null; // id du tier modifié, null = création
 let draft = { name: '', desc: '', color: SWATCHES[0] };
 
 function paintTierPreview() {
-  $('#tierPrev').style.cssText = `--c1:${draft.color};--c2:${shade(draft.color, -0.2)}`;
+  $('#tierPrev').style.cssText = `--c1:${draft.color};--c2:${shade(draft.color, -0.2)};--ink:${textOn(draft.color)}`;
 }
 
 function renderTierDialog() {
@@ -1002,6 +1002,16 @@ function gradColor(stops, t) {
   return '#' + rgb[i].map((v, k) => Math.round(v + (rgb[i + 1][k] - v) * f).toString(16).padStart(2, '0')).join('');
 }
 
+// titre raccourci pour l'image : retire les marques de saison / partie, les années entre parenthèses et les longs sous-titres
+function shortTitle(t) {
+  let s = t.replace(/\s*\((?:TV|Movie|OVA|ONA|\d{4})\)\s*$/i, '');
+  const tail = /\s+(?:\d+(?:st|nd|rd|th)\s+Season|Season\s+\d+|The\s+Final\s+Season|Final\s+Season|Part\s+\d+|Cour\s*\d+|\d+(?:nd|rd|th)\s+Cour|S\d+|II|III|IV)$/i;
+  for (let i = 0; i < 4 && tail.test(s); i++) s = s.replace(tail, '');
+  const m = s.match(/^(.{8,}?):\s+(.{12,})$/); // « Titre: très long sous-titre » -> « Titre »
+  if (m) s = m[1];
+  return s.trim() || t;
+}
+
 function calmColor(hex, c) {
   const n = parseInt(hex.slice(1), 16);
   let r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
@@ -1021,7 +1031,7 @@ const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${
 // Même rendu que la page : un bloc arrondi, trait coloré continu à gauche, lueur de chaque tier, lettre qui rayonne, légende dessous.
 // opts (aperçus et améliorations) : scale = résolution (2 = nette), cols = jaquettes par ligne, nameSize/outline = noms, tint = voile de couleur par tier, ring = liseré autour des jaquettes
 async function buildShareImage(list, withNames = false, opts = {}) {
-  const O = { palette: null, calm: null, blocks: true, blockStyle: 'tint', gap: 3, radius: 4, flat: true, poster: [118, 168], title: null, scale: 1, cols: 8, nameSize: 13, outline: true, tint: false, ring: false, ...opts }; // par défaut : 10 par ligne, noms lisibles avec contour, liseré de couleur (le voile par tier est écarté)
+  const O = { nameStyle: 'gradient', shortNames: false, fitNames: false, palette: null, calm: { s: 1, l: 0.74 }, blocks: true, blockStyle: 'solid', gap: 3, radius: 4, flat: true, poster: [118, 168], title: null, scale: 1, cols: 8, nameSize: 13, outline: true, tint: false, ring: false, ...opts }; // par défaut : 10 par ligne, noms lisibles avec contour, liseré de couleur (le voile par tier est écarté)
   try { await Promise.all([document.fonts.load('800 60px "Baloo 2"'), document.fonts.load('600 14px Inter')]); } catch { /* polices système */ }
   const PAD = 24, LABEL = 170, GAP = O.gap, ROWPAD = 10, BAR = O.blocks ? 0 : 12; // blocks : style « blocs de couleur » (nom du tier sur un rectangle plein)
   const PW = O.poster ? O.poster[0] : 100, PH = O.poster ? O.poster[1] : 142;
@@ -1165,28 +1175,26 @@ async function buildShareImage(list, withNames = false, opts = {}) {
       const px = x0 + LABEL + 6 + (i % perRow) * (PW + GAP), py = y + ROWPAD + Math.floor(i / perRow) * (CELL + GAP);
       drawPoster(ctx, imgs.get(k), list.items[k].t, px, py, PW, PH, O.radius, O.flat);
       if (O.ring) { rr(ctx, px + 1, py + 1, PW - 2, PH - 2, 11); ctx.lineWidth = 2; ctx.strokeStyle = hexA(tier.color, .8); ctx.stroke(); }
-      if (withNames) { // comme au survol sur la page : titre en bas à gauche sur un dégradé sombre
-        const it = list.items[k];
+      if (withNames) { // nom sur la jaquette : dégradé (style de la page) ou barre sombre centrée ; titre raccourci et taille adaptée en option
+        const it = list.items[k], label = O.shortNames ? shortTitle(it.t) : it.t, barStyle = O.nameStyle === 'bar';
+        const maxW = PW - (barStyle ? 10 : 14), maxLines = barStyle ? 2 : 3;
+        const wrap = (sz) => { ctx.font = '700 ' + sz + 'px Inter, sans-serif'; const out = []; let line = ''; for (const wd of label.split(' ')) { const t = line ? line + ' ' + wd : wd; if (ctx.measureText(t).width > maxW && line) { out.push(line); line = wd; } else line = t; } out.push(line); return out; };
+        const sizes = O.fitNames ? [16, 15, 14, 13, 12, 11, 10] : [O.nameSize];
+        let size = sizes[sizes.length - 1], lines = wrap(size);
+        for (const sz of sizes) { const l = wrap(sz); size = sz; lines = l; if (l.length <= maxLines && l.every((x) => ctx.measureText(x).width <= maxW)) break; }
+        ctx.font = '700 ' + size + 'px Inter, sans-serif';
+        if (lines.length > maxLines) { lines = lines.slice(0, maxLines); let last = lines[maxLines - 1]; while (last.length > 1 && ctx.measureText(last + '…').width > maxW) last = last.slice(0, -1); lines[maxLines - 1] = last + '…'; }
+        lines = lines.map((x) => { let t = x; while (t.length > 1 && ctx.measureText(t).width > maxW) t = t.slice(0, -1); return t; });
+        const LH = size + 2;
         ctx.save(); rr(ctx, px, py, PW, PH, O.radius); ctx.clip();
-        const gh = 64, g = ctx.createLinearGradient(0, py + PH - gh, 0, py + PH);
-        g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.88)');
-        ctx.fillStyle = g; ctx.fillRect(px, py + PH - gh, PW, gh);
+        if (barStyle) { const bh = lines.length * LH + 10; ctx.fillStyle = 'rgba(8,10,16,.84)'; ctx.fillRect(px, py + PH - bh, PW, bh); }
+        else { const gh = 64, g = ctx.createLinearGradient(0, py + PH - gh, 0, py + PH); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.88)'); ctx.fillStyle = g; ctx.fillRect(px, py + PH - gh, PW, gh); }
         ctx.restore();
-        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.font = '700 ' + O.nameSize + 'px Inter, sans-serif'; ctx.fillStyle = '#fff';
-        const LH = O.nameSize + 2, maxW = PW - 14, lines = []; let line = '';
-        for (const wd of it.t.split(' ')) {
-          const t = line ? line + ' ' + wd : wd;
-          if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = wd; } else line = t;
-        }
-        lines.push(line);
-        const shown = lines.slice(0, 3);
-        if (lines.length > 3) { let l3 = shown[2]; while (l3.length > 1 && ctx.measureText(l3 + '…').width > maxW) l3 = l3.slice(0, -1); shown[2] = l3 + '…'; }
-        ctx.lineJoin = 'round';
-        shown.forEach((t, i2) => {
-          let tt = t; while (tt.length > 1 && ctx.measureText(tt).width > maxW) tt = tt.slice(0, -1);
-          const ty = py + PH - 8 - (shown.length - 1 - i2) * LH;
-          if (O.outline) { ctx.lineWidth = 3.2; ctx.strokeStyle = 'rgba(0,0,0,.9)'; ctx.strokeText(tt, px + 7, ty); }
-          ctx.fillText(tt, px + 7, ty);
+        ctx.textAlign = barStyle ? 'center' : 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#fff'; ctx.lineJoin = 'round';
+        lines.forEach((t, i2) => {
+          const ty = py + PH - 7 - (lines.length - 1 - i2) * LH, tx = barStyle ? px + PW / 2 : px + 7;
+          if (O.outline && !barStyle) { ctx.lineWidth = 3.2; ctx.strokeStyle = 'rgba(0,0,0,.9)'; ctx.strokeText(t, tx, ty); }
+          ctx.fillText(t, tx, ty);
         });
       }
     });
