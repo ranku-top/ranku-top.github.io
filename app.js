@@ -35,7 +35,7 @@ function toast(msg) {
 // ---------- État + sauvegarde locale ----------
 const STORE = 'tierlist-anime-v1';
 const DEFAULT_TIERS = [
-  ['S', '#ff7aa2', 'Chef-d’œuvre'], ['A', '#ffb83d', 'Excellent'], ['B', '#ffe066', 'Bien'], ['C', '#4ade9f', 'Moyen'], ['D', '#6ea0ff', 'Bof'],
+  ['S', '#ff7f7f', 'Chef-d’œuvre'], ['A', '#ffbf7f', 'Excellent'], ['B', '#ffdf7f', 'Bien'], ['C', '#bfff7f', 'Moyen'], ['D', '#7fbfff', 'Bof'],
 ];
 const OLD_COLORS = { '#ff5d73': '#ff7aa2', '#ff9f43': '#ffb83d', '#ffd24d': '#ffe066', '#7bd88f': '#4ade9f', '#5fb0ff': '#6ea0ff' };
 
@@ -59,8 +59,10 @@ let db;
 try { db = JSON.parse(localStorage.getItem(STORE)); } catch { db = null; }
 if (!db || !Array.isArray(db.lists)) {
   const l = newList('Ma tier list');
-  db = { v: 1, cur: l.id, lists: [l] };
+  db = { v: 1, cur: l.id, lists: [l], pastel: 1 };
 }
+// Une seule fois : les couleurs de tiers déjà enregistrées passent au code couleur pastel (même teinte, plus douce).
+if (!db.pastel) { for (const l of db.lists) for (const t of l.tiers) if (/^#[0-9a-f]{6}$/i.test(t.color)) t.color = calmColor(t.color, { s: 1, l: 0.74 }); db.pastel = 1; try { localStorage.setItem(STORE, JSON.stringify(db)); } catch { /* ignore */ } }
 // Mise à jour des anciennes listes : nouvelles couleurs par défaut et légendes (S, A, B, C, D).
 for (const l of db.lists) {
   for (const t of l.tiers) {
@@ -279,7 +281,7 @@ $('#board').addEventListener('click', (e) => {
 });
 
 // ---------- Tiers : fenêtre unique pour créer ou modifier (nom, légende, couleur parmi une palette) ----------
-const SWATCHES = ['#ff7aa2', '#ff5d5d', '#ff8a4c', '#ffb83d', '#ffe066', '#a3e635', '#4ade9f', '#2dd4bf', '#38bdf8', '#6ea0ff', '#818cf8', '#a78bfa', '#b794f6', '#e879f9', '#fb7185', '#9ca3af', '#f3f4f8'];
+const SWATCHES = ['#ff7f7f', '#ff9f7f', '#ffbf7f', '#ffdf7f', '#ffff7f', '#dfff7f', '#bfff7f', '#7fff7f', '#7fffbf', '#7fffff', '#7fdfff', '#7fbfff', '#7f9fff', '#7f7fff', '#9f7fff', '#bf7fff', '#df7fff', '#ff7fff', '#ff7fbf', '#bfbfbf', '#f0f0f0'];
 let editTier = null; // id du tier modifié, null = création
 let draft = { name: '', desc: '', color: SWATCHES[0] };
 
@@ -1019,7 +1021,7 @@ const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${
 // Même rendu que la page : un bloc arrondi, trait coloré continu à gauche, lueur de chaque tier, lettre qui rayonne, légende dessous.
 // opts (aperçus et améliorations) : scale = résolution (2 = nette), cols = jaquettes par ligne, nameSize/outline = noms, tint = voile de couleur par tier, ring = liseré autour des jaquettes
 async function buildShareImage(list, withNames = false, opts = {}) {
-  const O = { palette: null, calm: { s: 1, l: 0.74 }, blocks: true, blockStyle: 'solid', gap: 3, radius: 4, flat: true, poster: [118, 168], title: null, scale: 1, cols: 8, nameSize: 13, outline: true, tint: false, ring: false, ...opts }; // par défaut : 10 par ligne, noms lisibles avec contour, liseré de couleur (le voile par tier est écarté)
+  const O = { palette: null, calm: null, blocks: true, blockStyle: 'tint', gap: 3, radius: 4, flat: true, poster: [118, 168], title: null, scale: 1, cols: 8, nameSize: 13, outline: true, tint: false, ring: false, ...opts }; // par défaut : 10 par ligne, noms lisibles avec contour, liseré de couleur (le voile par tier est écarté)
   try { await Promise.all([document.fonts.load('800 60px "Baloo 2"'), document.fonts.load('600 14px Inter')]); } catch { /* polices système */ }
   const PAD = 24, LABEL = 170, GAP = O.gap, ROWPAD = 10, BAR = O.blocks ? 0 : 12; // blocks : style « blocs de couleur » (nom du tier sur un rectangle plein)
   const PW = O.poster ? O.poster[0] : 100, PH = O.poster ? O.poster[1] : 142;
