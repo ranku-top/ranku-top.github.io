@@ -976,9 +976,8 @@ function rr(ctx, x, y, w, h, r) { // rectangle arrondi (compatible partout)
   ctx.closePath();
 }
 
-function drawPoster(ctx, im, title, x, y, w, h) {
-  const R = 12;
-  rr(ctx, x, y + 3, w, h, R); ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fill(); // relief sous l'affiche, comme sur la page
+function drawPoster(ctx, im, title, x, y, w, h, R = 12, flat = false) {
+  if (!flat) { rr(ctx, x, y + 3, w, h, R); ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fill(); } // relief sous l'affiche, comme sur la page
   ctx.save();
   rr(ctx, x, y, w, h, R); ctx.clip();
   if (im) { // recadrage « cover »
@@ -990,7 +989,29 @@ function drawPoster(ctx, im, title, x, y, w, h) {
     title.split(' ').slice(0, 6).forEach((word, i) => ctx.fillText(word, x + w / 2, y + 30 + i * 16));
   }
   ctx.restore();
-  rr(ctx, x + 1, y + 1, w - 2, h - 2, R - 1); ctx.lineWidth = 2; ctx.strokeStyle = '#0e1016'; ctx.stroke();
+  if (!flat) { rr(ctx, x + 1, y + 1, w - 2, h - 2, R - 1); ctx.lineWidth = 2; ctx.strokeStyle = '#0e1016'; ctx.stroke(); }
+}
+
+// adoucit une couleur : saturation réduite, luminosité unifiée, et mélange facultatif avec une teinte du site (pour un rendu plus calme)
+// couleur à la position t (0 à 1) d'un dégradé de plusieurs teintes
+function gradColor(stops, t) {
+  const rgb = stops.map((h) => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; });
+  const p = Math.max(0, Math.min(1, t)) * (rgb.length - 1), i = Math.min(rgb.length - 2, Math.floor(p)), f = p - i;
+  return '#' + rgb[i].map((v, k) => Math.round(v + (rgb[i + 1][k] - v) * f).toString(16).padStart(2, '0')).join('');
+}
+
+function calmColor(hex, c) {
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let hh = 0, s = 0, l = (mx + mn) / 2;
+  if (d) { s = d / (1 - Math.abs(2 * l - 1)); hh = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; hh *= 60; if (hh < 0) hh += 360; }
+  s = Math.min(1, s * c.s); l = c.l;
+  const C = (1 - Math.abs(2 * l - 1)) * s, X = C * (1 - Math.abs(((hh / 60) % 2) - 1)), m = l - C / 2;
+  const [r1, g1, b1] = hh < 60 ? [C, X, 0] : hh < 120 ? [X, C, 0] : hh < 180 ? [0, C, X] : hh < 240 ? [0, X, C] : hh < 300 ? [X, 0, C] : [C, 0, X];
+  let rgb = [r1 + m, g1 + m, b1 + m].map((v) => v * 255);
+  if (c.mix) { const t = parseInt(c.mix.hex.slice(1), 16), tr = [t >> 16, (t >> 8) & 255, t & 255]; rgb = rgb.map((v, i) => v * (1 - c.mix.amt) + tr[i] * c.mix.amt); }
+  return '#' + rgb.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
 }
 
 const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
@@ -998,12 +1019,14 @@ const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${
 // Même rendu que la page : un bloc arrondi, trait coloré continu à gauche, lueur de chaque tier, lettre qui rayonne, légende dessous.
 // opts (aperçus et améliorations) : scale = résolution (2 = nette), cols = jaquettes par ligne, nameSize/outline = noms, tint = voile de couleur par tier, ring = liseré autour des jaquettes
 async function buildShareImage(list, withNames = false, opts = {}) {
-  const O = { title: null, scale: 1, cols: 10, nameSize: 13, outline: true, tint: false, ring: true, ...opts }; // par défaut : 10 par ligne, noms lisibles avec contour, liseré de couleur (le voile par tier est écarté)
+  const O = { palette: null, calm: { s: 1, l: 0.74 }, blocks: true, blockStyle: 'solid', gap: 3, radius: 4, flat: true, poster: [118, 168], title: null, scale: 1, cols: 8, nameSize: 13, outline: true, tint: false, ring: false, ...opts }; // par défaut : 10 par ligne, noms lisibles avec contour, liseré de couleur (le voile par tier est écarté)
   try { await Promise.all([document.fonts.load('800 60px "Baloo 2"'), document.fonts.load('600 14px Inter')]); } catch { /* polices système */ }
-  const PAD = 24, LABEL = 170, PW = 100, PH = 142, GAP = 8, ROWPAD = 10, BAR = 12;
+  const PAD = 24, LABEL = 170, GAP = O.gap, ROWPAD = 10, BAR = O.blocks ? 0 : 12; // blocks : style « blocs de couleur » (nom du tier sur un rectangle plein)
+  const PW = O.poster ? O.poster[0] : 100, PH = O.poster ? O.poster[1] : 142;
   const W = O.cols ? PAD * 2 + LABEL + 12 + O.cols * (PW + GAP) : 1200;
   const perRow = Math.floor((W - PAD * 2 - LABEL - 12) / (PW + GAP));
-  const sections = list.tiers.map((t) => ({ tier: t, keys: t.items.filter((k) => list.items[k]) }));
+  const nT = list.tiers.length;
+  const sections = list.tiers.map((t, ti) => ({ tier: O.palette ? { ...t, color: gradColor(O.palette, nT > 1 ? ti / (nT - 1) : 0) } : O.calm ? { ...t, color: calmColor(t.color, O.calm) } : t, keys: t.items.filter((k) => list.items[k]) }));
   const CELL = PH;
   const rowH = (n) => Math.max(1, Math.ceil(n / perRow)) * (CELL + GAP) - GAP + ROWPAD * 2;
   const heights = sections.map((x) => rowH(x.keys.length));
@@ -1113,6 +1136,14 @@ async function buildShareImage(list, withNames = false, opts = {}) {
   sections.forEach(({ tier, keys }, idx) => {
     const h = heights[idx];
     if (idx) { ctx.fillStyle = '#0f1117'; ctx.fillRect(x0, y - 2, w, 2); } // trait sombre entre deux tiers
+    if (O.blocks) { // blocs de couleur : plusieurs traitements de la couleur du tier
+      const bs = O.blockStyle;
+      if (bs === 'tint') { ctx.fillStyle = hexA(tier.color, .2); ctx.fillRect(x0, y, LABEL, h); ctx.fillStyle = tier.color; ctx.fillRect(x0, y, 9, h); }
+      else if (bs === 'grad') { const g = ctx.createLinearGradient(x0, 0, x0 + LABEL, 0); g.addColorStop(0, hexA(tier.color, .78)); g.addColorStop(1, hexA(tier.color, .12)); ctx.fillStyle = g; ctx.fillRect(x0, y, LABEL, h); }
+      else if (bs === 'deep') { ctx.fillStyle = shade(tier.color, -0.52); ctx.fillRect(x0, y, LABEL, h); }
+      else if (bs === 'frame') { ctx.strokeStyle = tier.color; ctx.lineWidth = 4; ctx.strokeRect(x0 + 2, y + 2, LABEL - 4, h - 4); }
+      else { ctx.fillStyle = tier.color; ctx.fillRect(x0, y, LABEL, h); }
+    }
     if (O.tint) { const tg = ctx.createLinearGradient(x0 + BAR, 0, x0 + w, 0); const K = O.tint === true ? 1 : O.tint; tg.addColorStop(0, hexA(tier.color, Math.min(.5, .16 * K))); tg.addColorStop(.5, hexA(tier.color, Math.min(.4, .07 * K))); tg.addColorStop(1, hexA(tier.color, Math.min(.3, .03 * K))); ctx.fillStyle = tg; ctx.fillRect(x0 + BAR, y, w - BAR, h); } // voile léger de la couleur du tier
 
     // lettre : couleur du tier à plat, comme sur la page
@@ -1120,20 +1151,21 @@ async function buildShareImage(list, withNames = false, opts = {}) {
     ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     ctx.font = '800 ' + size + 'px "Baloo 2", sans-serif';
     const cx = x0 + BAR + (LABEL - BAR) / 2, base = y + h / 2 + (tier.desc ? 8 : size * 0.3);
-    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.3)'; ctx.shadowOffsetY = 2; ctx.fillStyle = tier.color; ctx.fillText(tier.name.slice(0, 12), cx, base); ctx.restore();
+    const ink = O.blocks ? ({ tint: tier.color, frame: tier.color, grad: '#fff', deep: '#fff' }[O.blockStyle] || textOn(tier.color)) : null;
+    ctx.save(); if (!O.blocks) { ctx.shadowColor = 'rgba(0,0,0,.3)'; ctx.shadowOffsetY = 2; } ctx.fillStyle = ink || tier.color; ctx.fillText(tier.name.slice(0, 12), cx, base); ctx.restore();
     if (tier.desc) { // légende sur une ou deux lignes
-      ctx.font = '600 14px Inter, sans-serif'; ctx.fillStyle = '#8f98b8';
+      ctx.font = (O.blocks ? '700' : '600') + ' 14px Inter, sans-serif'; ctx.fillStyle = O.blocks ? ink : '#8f98b8'; ctx.globalAlpha = O.blocks ? .8 : 1;
       const words = tier.desc.split(' '); let line = '', ly = base + 24;
       for (const wd of words) { const t = line ? line + ' ' + wd : wd; if (ctx.measureText(t).width > LABEL - 24 && line) { ctx.fillText(line, cx, ly); line = wd; ly += 17; } else line = t; }
-      ctx.fillText(line, cx, ly);
+      ctx.fillText(line, cx, ly); ctx.globalAlpha = 1;
     }
     keys.forEach((k, i) => {
       const px = x0 + LABEL + 6 + (i % perRow) * (PW + GAP), py = y + ROWPAD + Math.floor(i / perRow) * (CELL + GAP);
-      drawPoster(ctx, imgs.get(k), list.items[k].t, px, py, PW, PH);
+      drawPoster(ctx, imgs.get(k), list.items[k].t, px, py, PW, PH, O.radius, O.flat);
       if (O.ring) { rr(ctx, px + 1, py + 1, PW - 2, PH - 2, 11); ctx.lineWidth = 2; ctx.strokeStyle = hexA(tier.color, .8); ctx.stroke(); }
       if (withNames) { // comme au survol sur la page : titre en bas à gauche sur un dégradé sombre
         const it = list.items[k];
-        ctx.save(); rr(ctx, px, py, PW, PH, 12); ctx.clip();
+        ctx.save(); rr(ctx, px, py, PW, PH, O.radius); ctx.clip();
         const gh = 64, g = ctx.createLinearGradient(0, py + PH - gh, 0, py + PH);
         g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.88)');
         ctx.fillStyle = g; ctx.fillRect(px, py + PH - gh, PW, gh);
@@ -1185,7 +1217,7 @@ async function refreshShare() {
   $('#shState').hidden = false; img.hidden = true;
   ['shDl', 'shCopy', 'shShare'].forEach((id) => { $('#' + id).disabled = true; });
   const title = { text: list.name, style: 'tab', shape: 'slant', size: 44 }; // titre dans un onglet incliné incrusté
-  const cv = await (list.slots ? buildTopImage(list, { title }) : buildShareImage(list, !!db.shareNames, { ring: !!db.shareRing, tint: db.shareTint ? 1 : false, title }));
+  const cv = await (list.slots ? buildTopImage(list, { title }) : buildShareImage(list, !!db.shareNames, { title }));
   const blob = await new Promise((r) => cv.toBlob(r, 'image/png'));
   if (my !== SH.busy) return; // une demande plus récente a pris le relais
   SH.blob = blob;
@@ -1196,7 +1228,7 @@ async function refreshShare() {
   ['shDl', 'shCopy', 'shShare'].forEach((id) => { $('#' + id).disabled = false; });
 }
 
-const SH_OPTS = { shNames: 'shareNames', shRing: 'shareRing', shTint: 'shareTint' };
+const SH_OPTS = { shNames: 'shareNames' };
 const syncShareOpts = () => { for (const [id, key] of Object.entries(SH_OPTS)) { $('#' + id).classList.toggle('on', !!db[key]); $('#' + id).setAttribute('aria-pressed', String(!!db[key])); } };
 $('#shNamesRow').addEventListener('click', (e) => {
   const b = e.target.closest('.sh-opt');
