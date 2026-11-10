@@ -132,6 +132,52 @@ console.log(`Licences (séries TV) : ${sizes.length} groupes (2 : ${bucket(2, 2)
 console.log('Plus gros groupes :');
 Object.entries(outGroups).slice(0, 12).forEach(([id, g]) => console.log(`  #${id} ${String(g.length).padStart(3)} · ${outRows[g[0]][0]}`));
 
+// ---------- Noms courts (pour l'image de partage) : « Re:Zero kara Hajimeru Isekai Seikatsu » -> « Re:Zero ».
+// rows[i][9] = nom court ('' s'il n'y en a pas de sûr). Deux règles prudentes, puis corrections à la main dans data-manual/short-names.json :
+//  1. le début du titre (mots entiers, 2 mots ou avec ponctuation) qui existe tel quel comme autre nom de la licence ;
+//  2. un nom courant de la licence, simple, cité par au moins 3 variantes de noms (ex. « Frieren », « KonoSuba », « DanMachi »).
+const normS = (x) => x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+const startIdx = new Map(); const seenStart = new Set();
+outRows.forEach((r, i) => {
+  const g = r[8] || 'i' + i;
+  for (const n of [r[0], ...r[6].slice(0, 6)]) { const k = normS(n).split(' '); for (let L = 1; L <= Math.min(3, k.length); L++) { const p = k.slice(0, L).join(' '); const key = p + '|' + g; if (seenStart.has(key)) continue; seenStart.add(key); startIdx.set(p, (startIdx.get(p) || 0) + 1); } }
+});
+const asciiName = (x) => /^[A-Za-z][A-Za-z0-9 ':.!-]*$/.test(x);
+function shortNameOf(i) {
+  const r = outRows[i], g = r[8] ? outGroups[r[8]] : [i];
+  const names = new Map();
+  for (const j of g) { if (outRows[j][1] !== 0 && g.length > 1) continue; for (const n of [outRows[j][0], ...outRows[j][6]]) { const k = normS(n); if (k && !names.has(k)) names.set(k, n); } }
+  const title = r[0], nt = normS(title), tw = nt.split(' ');
+  const supOf = (k) => { let n = 0; for (const k2 of names.keys()) if (k2 !== k && (k2 === k || k2.startsWith(k + ' '))) n++; return n; };
+  for (let L = 1; L < tw.length; L++) {
+    const k = tw.slice(0, L).join(' ');
+    if (k.length < 6 || !names.has(k) || (startIdx.get(k) || 0) > 3) continue;
+    let out = ''; for (const ch of title) { out += ch; if (normS(out) === k) break; }
+    out = out.trim();
+    if (normS(out) !== k || (L < 2 && !/[:.\-]/.test(out))) continue; // un seul mot sans ponctuation : trop risqué (« Shingeki », « Tanaka »)
+    return out;
+  }
+  let best = null;
+  for (const [k, orig] of names) {
+    if (k.length < 5 || k.length > 22 || !asciiName(orig) || !/^[A-Z]/.test(orig)) continue;
+    const sharesWord = k.split(' ').some((w) => w.length >= 4 && tw.includes(w));
+    if (!sharesWord && k.length > 9) continue; // pas de traduction anglaise longue (« Demon Slayer ») : on garde le nom d'origine
+    if (/\d/.test(k) || /season|part|movie|special|ova|the animation/.test(k)) continue;
+    if (orig === orig.toUpperCase() && orig.length <= 6) continue;
+    if (supOf(k) < 3 || (startIdx.get(k) || 0) > 3) continue;
+    if (!best || k.length < best.k.length) best = { k, orig };
+  }
+  return best && best.k.length < nt.length - 3 ? best.orig : '';
+}
+const shortManual = existsSync('data-manual/short-names.json') ? JSON.parse(readFileSync('data-manual/short-names.json', 'utf8')) : {};
+let nShort = 0;
+outRows.forEach((r, i) => {
+  const k = r[4] ? 'a' + r[4] : 'm' + r[5];
+  r[9] = k in shortManual ? shortManual[k] : shortNameOf(i);
+  if (r[9]) nShort++;
+});
+console.log(nShort + ' noms courts calculés (corrections manuelles : ' + Object.keys(shortManual).filter((x) => !x.startsWith('_')).length + ')');
+
 const out = JSON.stringify({
   source: 'anime-offline-database (manami-project), licence ODbL 1.0',
   lastUpdate: db.lastUpdate,

@@ -1012,6 +1012,12 @@ function shortTitle(t) {
   return s.trim() || t;
 }
 
+// nom court d'une carte : celui calculé à la construction de la base (rows[i][9]), sinon un raccourci simple du titre
+function cardShortName(key, it) {
+  const r = typeof rowOfKey === 'function' ? rowOfKey(key[0] === 'g' ? key.slice(1) : key) : null;
+  return (r && r[9]) || shortTitle(it.t);
+}
+
 function calmColor(hex, c) {
   const n = parseInt(hex.slice(1), 16);
   let r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
@@ -1031,7 +1037,7 @@ const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${
 // Même rendu que la page : un bloc arrondi, trait coloré continu à gauche, lueur de chaque tier, lettre qui rayonne, légende dessous.
 // opts (aperçus et améliorations) : scale = résolution (2 = nette), cols = jaquettes par ligne, nameSize/outline = noms, tint = voile de couleur par tier, ring = liseré autour des jaquettes
 async function buildShareImage(list, withNames = false, opts = {}) {
-  const O = { nameStyle: 'gradient', shortNames: false, fitNames: false, palette: null, calm: { s: 1, l: 0.74 }, blocks: true, blockStyle: 'solid', gap: 3, radius: 4, flat: true, poster: [118, 168], title: null, scale: 1, cols: 8, nameSize: 13, outline: true, tint: false, ring: false, ...opts }; // par défaut : 10 par ligne, noms lisibles avec contour, liseré de couleur (le voile par tier est écarté)
+  const O = { nameStyle: 'gradient', shortNames: true, fitNames: true, palette: null, calm: { s: 1, l: 0.74 }, blocks: true, blockStyle: 'solid', gap: 3, radius: 4, flat: true, poster: [118, 168], title: null, scale: 1, cols: 8, nameSize: 13, outline: true, tint: false, ring: false, ...opts }; // par défaut : 10 par ligne, noms lisibles avec contour, liseré de couleur (le voile par tier est écarté)
   try { await Promise.all([document.fonts.load('800 60px "Baloo 2"'), document.fonts.load('600 14px Inter')]); } catch { /* polices système */ }
   const PAD = 24, LABEL = 170, GAP = O.gap, ROWPAD = 10, BAR = O.blocks ? 0 : 12; // blocks : style « blocs de couleur » (nom du tier sur un rectangle plein)
   const PW = O.poster ? O.poster[0] : 100, PH = O.poster ? O.poster[1] : 142;
@@ -1176,7 +1182,7 @@ async function buildShareImage(list, withNames = false, opts = {}) {
       drawPoster(ctx, imgs.get(k), list.items[k].t, px, py, PW, PH, O.radius, O.flat);
       if (O.ring) { rr(ctx, px + 1, py + 1, PW - 2, PH - 2, 11); ctx.lineWidth = 2; ctx.strokeStyle = hexA(tier.color, .8); ctx.stroke(); }
       if (withNames) { // nom sur la jaquette : dégradé (style de la page) ou barre sombre centrée ; titre raccourci et taille adaptée en option
-        const it = list.items[k], label = O.shortNames ? shortTitle(it.t) : it.t, barStyle = O.nameStyle === 'bar';
+        const it = list.items[k], label = O.shortNames ? cardShortName(k, it) : it.t, barStyle = O.nameStyle === 'bar';
         const maxW = PW - (barStyle ? 10 : 14), maxLines = barStyle ? 2 : 3;
         const wrap = (sz) => { ctx.font = '700 ' + sz + 'px Inter, sans-serif'; const out = []; let line = ''; for (const wd of label.split(' ')) { const t = line ? line + ' ' + wd : wd; if (ctx.measureText(t).width > maxW && line) { out.push(line); line = wd; } else line = t; } out.push(line); return out; };
         const sizes = O.fitNames ? [16, 15, 14, 13, 12, 11, 10] : [O.nameSize];
