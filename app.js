@@ -1039,7 +1039,7 @@ const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${
 // Même rendu que la page : un bloc arrondi, trait coloré continu à gauche, lueur de chaque tier, lettre qui rayonne, légende dessous.
 // opts (aperçus et améliorations) : scale = résolution (2 = nette), cols = jaquettes par ligne, nameSize/outline = noms, tint = voile de couleur par tier, ring = liseré autour des jaquettes
 async function buildShareImage(list, withNames = false, opts = {}) {
-  const O = { nameStyle: 'gradient', shortNames: true, fitNames: true, palette: null, calm: { s: 1, l: 0.74 }, blocks: true, blockStyle: 'solid', gap: 3, radius: 4, flat: true, poster: [118, 168], title: null, scale: 1, cols: 8, nameSize: 13, outline: true, tint: false, ring: false, ...opts }; // par défaut : 10 par ligne, noms lisibles avec contour, liseré de couleur (le voile par tier est écarté)
+  const O = { nameStyle: 'outline', shortNames: true, fitNames: true, palette: null, calm: { s: 1, l: 0.74 }, blocks: true, blockStyle: 'solid', gap: 3, radius: 4, flat: true, poster: [118, 168], title: null, scale: 1, cols: 8, nameSize: 13, outline: true, tint: false, ring: false, ...opts }; // par défaut : 10 par ligne, noms lisibles avec contour, liseré de couleur (le voile par tier est écarté)
   try { await Promise.all([document.fonts.load('800 60px "Baloo 2"'), document.fonts.load('600 14px Inter')]); } catch { /* polices système */ }
   const PAD = 24, LABEL = 170, GAP = O.gap, ROWPAD = 10, BAR = O.blocks ? 0 : 12; // blocks : style « blocs de couleur » (nom du tier sur un rectangle plein)
   const PW = O.poster ? O.poster[0] : 100, PH = O.poster ? O.poster[1] : 142;
@@ -1195,13 +1195,17 @@ async function buildShareImage(list, withNames = false, opts = {}) {
         lines = lines.map((x) => { let t = x; while (t.length > 1 && ctx.measureText(t).width > maxW) t = t.slice(0, -1); return t; });
         const LH = size + 2;
         ctx.save(); rr(ctx, px, py, PW, PH, O.radius); ctx.clip();
+        const lw = Math.max(...lines.map((x) => ctx.measureText(x).width)), labelStyle = O.nameStyle === 'label', outlineStyle = O.nameStyle === 'outline';
         if (barStyle) { const bh = lines.length * LH + 10; ctx.fillStyle = 'rgba(8,10,16,.84)'; ctx.fillRect(px, py + PH - bh, PW, bh); }
+        else if (labelStyle) { const bh = lines.length * LH + 6; ctx.fillStyle = 'rgba(8,10,16,.78)'; rr(ctx, px + 4, py + PH - 5 - bh, lw + 12, bh, 4); ctx.fill(); }
+        else if (outlineStyle) { /* aucun fond : le texte porte son propre contour */ }
         else { const gh = 64, g = ctx.createLinearGradient(0, py + PH - gh, 0, py + PH); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.88)'); ctx.fillStyle = g; ctx.fillRect(px, py + PH - gh, PW, gh); }
         ctx.restore();
         ctx.textAlign = barStyle ? 'center' : 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#fff'; ctx.lineJoin = 'round';
         lines.forEach((t, i2) => {
-          const ty = py + PH - 7 - (lines.length - 1 - i2) * LH, tx = barStyle ? px + PW / 2 : px + 7;
-          if (O.outline && !barStyle) { ctx.lineWidth = 3.2; ctx.strokeStyle = 'rgba(0,0,0,.9)'; ctx.strokeText(t, tx, ty); }
+          const ty = py + PH - (labelStyle ? 10 : 7) - (lines.length - 1 - i2) * LH, tx = barStyle ? px + PW / 2 : labelStyle ? px + 10 : px + 7;
+          if (outlineStyle) { ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.85)'; ctx.shadowBlur = 5; ctx.lineWidth = 4.5; ctx.strokeStyle = 'rgba(0,0,0,.92)'; ctx.strokeText(t, tx, ty); ctx.restore(); }
+          else if (O.outline && !barStyle && !labelStyle) { ctx.lineWidth = 3.2; ctx.strokeStyle = 'rgba(0,0,0,.9)'; ctx.strokeText(t, tx, ty); }
           ctx.fillText(t, tx, ty);
         });
       }
@@ -2309,4 +2313,4 @@ async function buildTopImage(top, opts = {}) {
 document.body.classList.add('boot'); // animation d'arrivée, retirée ensuite pour ne pas se rejouer
 setTimeout(() => document.body.classList.remove('boot'), 1400);
 render();
-loadData().catch(() => {}); // précharge la base pour que les affiches et la recherche soient prêtes
+loadData().then(() => { if (UI.view === 'tiers') render(); }).catch(() => {}); // précharge la base (puis redessine : les noms courts viennent de la base) pour que les affiches et la recherche soient prêtes

@@ -904,3 +904,6 @@ body.show-names .tier .card .tt { display: block; opacity: 1; position: absolute
 @media (hover: hover) { .card .tt { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; } }
 body.show-names .tier .card .tt { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
 .card .tt { padding-bottom: 0; border-bottom: 7px solid rgba(0,0,0,.88); }
+
+/* noms sur les jaquettes : texte blanc à contour sombre, sans fond ni dégradé */
+.card .tt, body.show-names .tier .card .tt { background: none !important; border-bottom: 0 !important; padding: 0 7px !important; bottom: 7px; -webkit-text-stroke: 3.5px rgba(0,0,0,.92); paint-order: stroke fill; text-shadow: 0 1px 4px rgba(0,0,0,.85); }
