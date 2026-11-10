@@ -151,10 +151,11 @@ function shortNameOf(i) {
   const supOf = (k) => { let n = 0; for (const k2 of names.keys()) if (k2 !== k && (k2 === k || k2.startsWith(k + ' '))) n++; return n; };
   for (let L = 1; L < tw.length; L++) {
     const k = tw.slice(0, L).join(' ');
-    if (k.length < 6 || !names.has(k) || (startIdx.get(k) || 0) > 3) continue;
+    const colon = title.indexOf(':'), beforeColon = colon > 0 && normS(title.slice(0, colon)) === k; // « Magi: The Labyrinth… » -> « Magi »
+    if (k.length < (beforeColon ? 4 : 6) || !names.has(k) || (startIdx.get(k) || 0) > 3) continue;
     let out = ''; for (const ch of title) { out += ch; if (normS(out) === k) break; }
     out = out.trim();
-    if (normS(out) !== k || (L < 2 && !/[:.\-]/.test(out))) continue; // un seul mot sans ponctuation : trop risqué (« Shingeki », « Tanaka »)
+    if (normS(out) !== k || (L < 2 && !beforeColon && !/[:.\-]/.test(out))) continue; // un seul mot sans ponctuation : trop risqué (« Shingeki », « Tanaka »)
     return out;
   }
   let best = null;

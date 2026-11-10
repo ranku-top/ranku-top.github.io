@@ -113,7 +113,7 @@ function card(list, key) {
   return h('div', { class: 'card' + (key === freshKey ? ' pop' : '') + (UI.sel.has(key) ? ' sel' : ''), dataset: { k: key }, title: it.t },
     h('img', { src: imgUrl(it.i), alt: it.t, loading: 'lazy', draggable: 'false' }),
     it.m && it.m.length > 1 ? h('span', { class: 'cnt' }, '×' + it.m.length) : null,
-    h('span', { class: 'tt' }, it.t));
+    h('span', { class: 'tt' }, cardShortName(key, it)));
 }
 
 // écran affiché quand il n'y a plus ni tier list ni top : petit tutoriel
@@ -193,6 +193,7 @@ function render() {
     h('button', { class: 'tb-btn' + (resetArmed ? ' danger-on' : ''), id: 'resetBtn', type: 'button', ...(list.tiers.some((t) => t.items.some((k) => list.items[k])) ? {} : { disabled: '' }) }, svgEl(RESET_ICON), resetArmed ? 'Sûr ? Appuie pour tout remettre' : 'Réinitialiser'),
     h('span', { class: 'sp' }),
     h('label', { class: 'size-ctl', title: 'Taille des affiches' }, svgEl(SIZE_SMALL), h('input', { type: 'range', id: 'sizeRange', min: '56', max: '140', step: '2', value: String(Math.round(currentCardW())) }), svgEl(SIZE_BIG)),
+    h('button', { class: 'tb-btn' + (db.showNames ? ' on' : ''), id: 'namesBtn', type: 'button', title: 'Afficher le nom sur chaque jaquette' }, 'Noms'),
     h('button', { class: 'tb-btn tb-share', type: 'button' }, svgEl(SHARE_ICON), 'Partager'),
   ]));
   board.append(h('div', { class: 'tiers', style: `--bar:${bar}` }, list.tiers.map((t, i) =>
@@ -267,6 +268,7 @@ $('#board').addEventListener('click', (e) => {
   if (e.target.closest('.tb-add')) { openSearch(); return; }
   if (e.target.closest('.tb-chars')) { openChars(); return; }
   if (e.target.closest('.tb-import')) { openImport(); return; }
+  if (e.target.closest('#namesBtn')) { db.showNames = !db.showNames; save(); document.body.classList.toggle('show-names', db.showNames); e.target.closest('#namesBtn').classList.toggle('on', db.showNames); return; }
   if (e.target.closest('#resetBtn')) { resetTiers(); return; }
   if (e.target.closest('#delAllBtn')) { deleteAllCards(); return; }
   if (e.target.closest('#quickBtn')) { openQuick(); return; }
@@ -1874,7 +1876,10 @@ function applyCardSize(w) {
   root.setProperty('--card-h', Math.round(w * 1.42) + 'px');
 }
 const currentCardW = () => db.cardW || parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-w')) || 86;
+// Une seule fois : jaquettes plus grandes par défaut (comme sur l'image de partage)
+if (!db.layoutV2) { db.cardW = 108; db.layoutV2 = 1; try { localStorage.setItem(STORE, JSON.stringify(db)); } catch { /* ignore */ } }
 if (db.cardW) applyCardSize(db.cardW);
+document.body.classList.toggle('show-names', !!db.showNames);
 
 // --- compteur et filtre de « Non classé »
 const poolTotal = (list) => list.pool.filter((k) => list.items[k]).length;

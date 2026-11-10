@@ -890,3 +890,17 @@ body[data-layout="a"] #board, body[data-layout="a"] #topView { padding-top: 0; }
 .mv button { background: rgba(0,0,0,.2); color: var(--ink); }
 .mv button:not(:disabled):hover { background: rgba(0,0,0,.38); }
 .tier + .tier::before { left: 0; right: 0; }
+
+/* ===== Jaquettes des tiers : plus grandes, presque collées, à plat (comme sur l'image de partage) ===== */
+.tier .zone { gap: 3px; padding: 6px 6px 6px 3px; }
+.tier .card { border: 0; border-radius: 4px; box-shadow: none; }
+.tier .card img { border-radius: 4px; }
+.tier .card .tt { border-radius: 0 0 4px 4px; }
+.card .tt { font: 700 12px/1.2 'Inter', sans-serif; padding: 26px 7px 7px; }
+.card .cnt { right: 4px; bottom: 4px; }
+/* nom affiché en permanence sur les jaquettes des tiers (bouton « Noms ») */
+body.show-names .tier .card .tt { display: block; opacity: 1; position: absolute; left: 0; right: 0; bottom: 0; color: #fff; background: linear-gradient(transparent, rgba(0,0,0,.88)); pointer-events: none; }
+/* noms longs : 3 lignes au maximum, jamais en dehors de la jaquette */
+@media (hover: hover) { .card .tt { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; } }
+body.show-names .tier .card .tt { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+.card .tt { padding-bottom: 0; border-bottom: 7px solid rgba(0,0,0,.88); }
