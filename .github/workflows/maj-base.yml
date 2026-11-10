@@ -1,0 +1,54 @@
+name: Mise à jour de la base d'animés
+
+# Une fois par mois (le 1er à 06:00 UTC) + lancement manuel possible (onglet Actions > Run workflow).
+# Ne publie rien tout seul : ouvre une Pull Request à valider.
+on:
+  schedule:
+    - cron: '0 6 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  maj:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Reconstruire data/anime.json
+        run: node scripts/build-data.mjs
+
+      - name: Vérification de bon sens
+        run: |
+          node -e '
+            const d = JSON.parse(require("fs").readFileSync("data/anime.json", "utf8"));
+            if (d.rows.length < 15000) { console.error("Trop peu de lignes : " + d.rows.length); process.exit(1); }
+            const r = d.rows.find((x) => x[0] === "Shingeki no Kyojin");
+            if (!r || !r[8] || d.groups[r[8]].length < 5) { console.error("Licence Shingeki suspecte"); process.exit(1); }
+            console.log(d.rows.length + " lignes, base du " + d.lastUpdate);
+          '
+
+      - name: Ouvrir une Pull Request si la base a changé
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet -- data/anime.json; then
+            echo "Pas de nouvelle version de la base : rien à faire."
+            exit 0
+          fi
+          DATE=$(node -p 'JSON.parse(require("fs").readFileSync("data/anime.json","utf8")).lastUpdate')
+          BRANCH="maj-base-$(date +%Y-%m-%d)"
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add data/anime.json
+          git commit -m "Mise à jour de la base d'animés ($DATE)"
+          git push origin "$BRANCH"
+          gh pr create --base master --head "$BRANCH" \
+            --title "Mise à jour de la base d'animés ($DATE)" \
+            --body "Base reconstruite automatiquement depuis anime-offline-database (version du $DATE). Les noms courts et coupures manuelles sont réappliqués. Après merge, relancer au besoin : node scripts/check-licences.mjs"
