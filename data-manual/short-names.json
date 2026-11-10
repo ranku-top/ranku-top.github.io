@@ -1,5 +1,6 @@
 {
   "_doc": "Noms courts forcés pour l'image de partage. Clé : a<idAniList> (ou m<idMAL>) de la jaquette de la carte ; valeur : le nom à afficher. Chaîne vide = garder le titre complet.",
   "a101280": "Tensura",
-  "a121": ""
+  "a121": "",
+  "a21234": "Erased"
 }
